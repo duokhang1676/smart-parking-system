@@ -1,4 +1,3 @@
-// import 'package:smart_parking/pages/home.dart';
 import 'package:flutter/material.dart';
 import 'package:smart_parking/pages/login.dart';
 
