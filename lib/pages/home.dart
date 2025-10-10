@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -9,6 +10,10 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  // User information (in a real app, this would come from login/session)
+  final String userPhoneNumber = "123-4567";
+  final String userName = "HIHI";
+  
   // Dropdown variables
   String? selectedParkingLot;
   
@@ -123,13 +128,89 @@ class _HomePageState extends State<HomePage> {
       appBar: _appBar(),
       body: ListView(
         children: [
+          _welcomeSection(),
+          SizedBox(height: 20,),
           _dropdownSection(),
           SizedBox(height: 10,), // Reduced spacing between dropdown and information
           _informationSection(),
+          SizedBox(height: 16,),
+          _qrButtonSection(),
           SizedBox(height: 20,),
         ],
       ),
     );
+  }
+
+  Container _welcomeSection() {
+    return Container(
+          margin: EdgeInsets.symmetric(horizontal: 20),
+          padding: EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.indigo.shade600, Colors.blue.shade500],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.indigo.withValues(alpha: 0.3),
+                spreadRadius: 0,
+                blurRadius: 15,
+                offset: Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Welcome back,',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 16,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      userName,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                        'Have a great day!',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  // welcome back icon 
+
+                  Icons.emoji_emotions,
+                  color: const Color.fromARGB(255, 235, 255, 161),
+                  size: 32,
+                ),
+              ),
+            ],
+          ),
+        );
   }
 
   Container _dropdownSection() {
@@ -522,6 +603,258 @@ class _HomePageState extends State<HomePage> {
           fontWeight: FontWeight.w500,
         ),
       ),
+    );
+  }
+
+  void _saveQRCode() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('QR Code saved to gallery!'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Widget _qrButtonSection() {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 20),
+      child: ElevatedButton.icon(
+        onPressed: () {
+          _showQRCodePopup();
+        },
+        icon: Icon(Icons.qr_code, size: 24),
+        label: Text(
+          'Show My QR Code',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.indigo.shade600,
+          foregroundColor: Colors.white,
+          padding: EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          elevation: 4,
+          shadowColor: Colors.indigo.withValues(alpha: 0.3),
+        ),
+      ),
+    );
+  }
+
+  void _showQRCodePopup() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 20,
+                  offset: Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header with close button
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'My QR Code',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: Icon(Icons.close, color: Colors.grey.shade600),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.grey.shade100,
+                        shape: CircleBorder(),
+                      ),
+                    ),
+                  ],
+                ),
+                
+                SizedBox(height: 20),
+                
+                // User Info Display
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.indigo.shade50, Colors.blue.shade50],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.indigo.shade200),
+                  ),
+                  child: Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 25,
+                        backgroundColor: Colors.indigo.shade600,
+                        child: Icon(Icons.person, color: Colors.white, size: 25),
+                      ),
+                      SizedBox(height: 12),
+                      Text(
+                        userName,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.indigo.shade700,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.indigo.shade300),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.phone, color: Colors.indigo.shade600, size: 16),
+                            SizedBox(width: 6),
+                            Text(
+                              userPhoneNumber,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.indigo.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                SizedBox(height: 20),
+                
+                // QR Code
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade300, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 8,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: QrImageView(
+                    data: userPhoneNumber,
+                    version: QrVersions.auto,
+                    size: 180.0,
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black,
+                    gapless: false,
+                    errorStateBuilder: (cxt, err) {
+                      return Container(
+                        width: 180,
+                        height: 180,
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.error_outline, size: 40, color: Colors.red),
+                              SizedBox(height: 12),
+                              Text(
+                                "QR Code Error",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.red, fontSize: 14),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                
+                SizedBox(height: 20),
+                
+                // Instructions
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.amber.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.amber.shade700, size: 20),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Show this QR code for quick identification',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.amber.shade800,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                SizedBox(height: 16),
+                
+                // Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _saveQRCode();
+                        },
+                        icon: Icon(Icons.download, size: 18),
+                        label: Text('Save'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.indigo.shade600,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          elevation: 2,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
