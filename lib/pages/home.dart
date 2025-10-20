@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'dart:async';
 import '../services/user_service.dart';
 import '../services/parking_service.dart';
 import '../services/api_service.dart';
@@ -34,11 +35,50 @@ class _HomePageState extends State<HomePage> {
 
   // Detailed parking lot information (empty initially)
   Map<String, Map<String, dynamic>> parkingLotDetails = {};
+  
+  // User's parked vehicles information in current parking lot (list of vehicles)
+  List<Map<String, dynamic>> userParkedVehicles = [];
+  
+  // Timer for auto-refresh vehicle information every 15 seconds
+  Timer? _vehicleRefreshTimer;
+  
+  // Timer for auto-refresh environment data every 30 seconds  
+  Timer? _environmentRefreshTimer;
+  
+  // Timer for auto-refresh parking status every 20 seconds
+  Timer? _parkingStatusRefreshTimer;
+  
+  // Flag to show when vehicle data is being refreshed
+  bool _isRefreshingVehicle = false;
+  
+  // Flag to show when environment data is being refreshed
+  bool _isRefreshingEnvironment = false;
+  
+  // Flag to show when parking status is being refreshed
+  bool _isRefreshingParkingStatus = false;
+  
+  // Last update time for vehicle information
+  DateTime? _lastVehicleUpdate;
+  
+  // Last update time for environment information
+  DateTime? _lastEnvironmentUpdate;
+  
+  // Last update time for parking status
+  DateTime? _lastParkingStatusUpdate;
 
   @override
   void initState() {
     super.initState();
     // No default selection since there's no data
+  }
+
+  @override
+  void dispose() {
+    // Cancel timers when widget is disposed
+    _vehicleRefreshTimer?.cancel();
+    _environmentRefreshTimer?.cancel();
+    _parkingStatusRefreshTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -210,6 +250,11 @@ class _HomePageState extends State<HomePage> {
   void _processSelectedParking(String selectedString) {
     print('Processing selected parking: $selectedString');
     
+    // Stop existing timer when switching parking lots
+    _stopVehicleRefreshTimer();
+    _stopEnvironmentRefreshTimer();
+    _stopParkingStatusRefreshTimer();
+    
     // Parse format: "address_parts, parking_name"
     // Example: "123 Nguyen Van A, District 1, Parking A"
     // Parking name is always after the last comma
@@ -264,6 +309,9 @@ class _HomePageState extends State<HomePage> {
       // Load parking slots information
       await _loadParkingSlots();
       
+      // Load user's parked vehicle information 
+      await _loadUserParkedVehicle();
+      
     } catch (e) {
       print('Failed to load parking ID: $e');
       
@@ -300,11 +348,18 @@ class _HomePageState extends State<HomePage> {
           'light': 'N/A',
           'last_update': slotsInfo['last_update'] ?? '',
         };
+        _lastParkingStatusUpdate = DateTime.now();
       });
       
       print('Updated parking details - Empty: ${slotsInfo['empty']}, Parked: ${slotsInfo['parked']}, Total: ${slotsInfo['total']}');
       print('License plates: ${slotsInfo['licenses']}');
       print('Last update: ${slotsInfo['last_update']}');
+      
+      // Start auto-refresh timer for parking status (20 seconds)
+      _startParkingStatusRefreshTimer();
+      
+      // Load environment data
+      await _loadEnvironmentData();
       
     } catch (e) {
       print('Failed to load parking slots: $e');
@@ -323,6 +378,257 @@ class _HomePageState extends State<HomePage> {
           'humidity': 'N/A',
           'light': 'N/A',
         };
+        
+        // Reset vehicles information on error
+        userParkedVehicles = [];
+      });
+    }
+  }
+  
+  // Load user's parked vehicles information in current parking lot
+  Future<void> _loadUserParkedVehicle() async {
+    if (currentParkingId.isEmpty || userId.isEmpty) return;
+    
+    print('Loading user parked vehicles for userId: $userId, parkingId: $currentParkingId');
+    
+    try {
+      final vehiclesList = await ParkingService.getUserParkedVehicle(userId, currentParkingId);
+      
+      setState(() {
+        userParkedVehicles = vehiclesList;
+        _lastVehicleUpdate = DateTime.now();
+      });
+      
+      if (vehiclesList.isNotEmpty) {
+        print('Found ${vehiclesList.length} parked vehicles');
+        for (var vehicle in vehiclesList) {
+          print('Vehicle: ${vehicle['license_plate']} at ${vehicle['slot_name']}');
+        }
+      } else {
+        print('No parked vehicles found for user in this parking lot');
+      }
+      
+      // Start auto-refresh timer for vehicle information (15 seconds)
+      _startVehicleRefreshTimer();
+      
+    } catch (e) {
+      print('Failed to load user parked vehicles: $e');
+      
+      setState(() {
+        userParkedVehicles = [];
+      });
+      
+      // Stop timer on initial load error
+      _stopVehicleRefreshTimer();
+      _stopEnvironmentRefreshTimer();
+      _stopParkingStatusRefreshTimer();
+    }
+  }
+  
+  // Start periodic timer to refresh vehicle information every 15 seconds
+  void _startVehicleRefreshTimer() {
+    // Cancel existing timer if any
+    _vehicleRefreshTimer?.cancel();
+    
+    // Create new periodic timer
+    _vehicleRefreshTimer = Timer.periodic(Duration(seconds: 15), (timer) {
+      _refreshVehicleData();
+    });
+    
+    print('Vehicle refresh timer started - will update every 15 seconds');
+  }
+  
+  // Stop the refresh timer
+  void _stopVehicleRefreshTimer() {
+    _vehicleRefreshTimer?.cancel();
+    _vehicleRefreshTimer = null;
+    print('Vehicle refresh timer stopped');
+  }
+  
+  // Refresh only vehicle data (called by timer)
+  Future<void> _refreshVehicleData() async {
+    if (currentParkingId.isEmpty || userId.isEmpty) {
+      print('Cannot refresh vehicle data - missing parkingId or userId');
+      return;
+    }
+    
+    // Set refreshing state
+    setState(() {
+      _isRefreshingVehicle = true;
+    });
+    
+    print('Auto-refreshing vehicle data... (${DateTime.now()})');
+    
+    try {
+      final vehiclesList = await ParkingService.getUserParkedVehicle(userId, currentParkingId);
+      
+      setState(() {
+        userParkedVehicles = vehiclesList;
+        _isRefreshingVehicle = false;
+        _lastVehicleUpdate = DateTime.now();
+      });
+      
+      if (vehiclesList.isNotEmpty) {
+        print('Vehicles updated: ${vehiclesList.length} vehicles found');
+        for (var vehicle in vehiclesList) {
+          print('Vehicle: ${vehicle['license_plate']} - Status: num_slot=${vehicle['num_slot']}');
+        }
+      } else {
+        print('No vehicles found in this parking lot');
+      }
+      
+    } catch (e) {
+      print('Failed to refresh vehicle data: $e');
+      // Don't reset userParkedVehicles on refresh errors - keep last known state
+      setState(() {
+        _isRefreshingVehicle = false;
+      });
+    }
+  }
+  
+  // Load environment data for current parking lot
+  Future<void> _loadEnvironmentData() async {
+    if (currentParkingId.isEmpty) return;
+    
+    print('Loading environment data for parking ID: $currentParkingId');
+    
+    try {
+      final envInfo = await ParkingService.getEnvironmentData(currentParkingId);
+      
+      // Update parkingLotDetails with environment information
+      setState(() {
+        if (parkingLotDetails[selectedParkingLot!] != null) {
+          parkingLotDetails[selectedParkingLot!]!['temperature'] = envInfo['temperature'];
+          parkingLotDetails[selectedParkingLot!]!['humidity'] = envInfo['humidity'];
+          parkingLotDetails[selectedParkingLot!]!['light'] = envInfo['light'];
+        }
+        _lastEnvironmentUpdate = DateTime.now();
+      });
+      
+      print('Environment data loaded: Temp=${envInfo['temperature']}, Humidity=${envInfo['humidity']}, Light=${envInfo['light']}');
+      
+      // Start auto-refresh timer for environment data (30 seconds)
+      _startEnvironmentRefreshTimer();
+      
+    } catch (e) {
+      print('Failed to load environment data: $e');
+      // Keep default N/A values
+    }
+  }
+  
+  // Start periodic timer to refresh environment data every 30 seconds
+  void _startEnvironmentRefreshTimer() {
+    // Cancel existing timer if any
+    _environmentRefreshTimer?.cancel();
+    
+    // Create new periodic timer
+    _environmentRefreshTimer = Timer.periodic(Duration(seconds: 30), (timer) {
+      _refreshEnvironmentData();
+    });
+    
+    print('Environment refresh timer started - will update every 30 seconds');
+  }
+  
+  // Stop the environment refresh timer
+  void _stopEnvironmentRefreshTimer() {
+    _environmentRefreshTimer?.cancel();
+    _environmentRefreshTimer = null;
+    print('Environment refresh timer stopped');
+  }
+  
+  // Refresh only environment data (called by timer)
+  Future<void> _refreshEnvironmentData() async {
+    if (currentParkingId.isEmpty) {
+      print('Cannot refresh environment data - missing parkingId');
+      return;
+    }
+    
+    // Set refreshing state
+    setState(() {
+      _isRefreshingEnvironment = true;
+    });
+    
+    print('Auto-refreshing environment data... (${DateTime.now()})');
+    
+    try {
+      final envInfo = await ParkingService.getEnvironmentData(currentParkingId);
+      
+      setState(() {
+        if (parkingLotDetails[selectedParkingLot!] != null) {
+          parkingLotDetails[selectedParkingLot!]!['temperature'] = envInfo['temperature'];
+          parkingLotDetails[selectedParkingLot!]!['humidity'] = envInfo['humidity'];
+          parkingLotDetails[selectedParkingLot!]!['light'] = envInfo['light'];
+        }
+        _isRefreshingEnvironment = false;
+        _lastEnvironmentUpdate = DateTime.now();
+      });
+      
+      print('Environment updated: Temp=${envInfo['temperature']}, Humidity=${envInfo['humidity']}, Light=${envInfo['light']}');
+      
+    } catch (e) {
+      print('Failed to refresh environment data: $e');
+      // Don't change environment values on refresh errors - keep last known state
+      setState(() {
+        _isRefreshingEnvironment = false;
+      });
+    }
+  }
+  
+  // Start periodic timer to refresh parking status every 20 seconds
+  void _startParkingStatusRefreshTimer() {
+    // Cancel existing timer if any
+    _parkingStatusRefreshTimer?.cancel();
+    
+    // Create new periodic timer
+    _parkingStatusRefreshTimer = Timer.periodic(Duration(seconds: 20), (timer) {
+      _refreshParkingStatusData();
+    });
+    
+    print('Parking status refresh timer started - will update every 20 seconds');
+  }
+  
+  // Stop the parking status refresh timer
+  void _stopParkingStatusRefreshTimer() {
+    _parkingStatusRefreshTimer?.cancel();
+    _parkingStatusRefreshTimer = null;
+    print('Parking status refresh timer stopped');
+  }
+  
+  // Refresh only parking status data (called by timer)
+  Future<void> _refreshParkingStatusData() async {
+    if (currentParkingId.isEmpty) {
+      print('Cannot refresh parking status - missing parkingId');
+      return;
+    }
+    
+    // Set refreshing state
+    setState(() {
+      _isRefreshingParkingStatus = true;
+    });
+    
+    print('Auto-refreshing parking status... (${DateTime.now()})');
+    
+    try {
+      final slotsInfo = await ParkingService.getParkingSlots(currentParkingId);
+      
+      setState(() {
+        if (parkingLotDetails[selectedParkingLot!] != null) {
+          parkingLotDetails[selectedParkingLot!]!['empty'] = slotsInfo['empty'];
+          parkingLotDetails[selectedParkingLot!]!['parked'] = slotsInfo['parked'];
+          parkingLotDetails[selectedParkingLot!]!['total'] = slotsInfo['total'];
+          parkingLotDetails[selectedParkingLot!]!['last_update'] = slotsInfo['last_update'] ?? '';
+        }
+        _isRefreshingParkingStatus = false;
+        _lastParkingStatusUpdate = DateTime.now();
+      });
+      
+      print('Parking status updated: Empty=${slotsInfo['empty']}, Parked=${slotsInfo['parked']}, Total=${slotsInfo['total']}');
+      
+    } catch (e) {
+      print('Failed to refresh parking status: $e');
+      // Don't change parking status on refresh errors - keep last known state
+      setState(() {
+        _isRefreshingParkingStatus = false;
       });
     }
   }
@@ -616,6 +922,10 @@ class _HomePageState extends State<HomePage> {
           ),
           SizedBox(height: 10),
           
+          // Row 4: User's Parked Vehicles Information
+          _buildUserVehiclesRow(),
+          SizedBox(height: 10),
+          
           // Row 4: License Plates - COMMENTED (not needed for now)
           // _buildLicensesRow(info['licenses']),
           // SizedBox(height: 10),
@@ -704,13 +1014,36 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Parking Status',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w500,
-                ),
+              Row(
+                children: [
+                  Text(
+                    'Parking Status',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (_isRefreshingParkingStatus) ...[
+                    SizedBox(width: 8),
+                    SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.orange,
+                      ),
+                    ),
+                  ],
+                  if (_parkingStatusRefreshTimer != null && !_isRefreshingParkingStatus) ...[
+                    SizedBox(width: 8),
+                    Icon(
+                      Icons.refresh,
+                      size: 12,
+                      color: Colors.green.shade600,
+                    ),
+                  ],
+                ],
               ),
               Row(
                 children: [
@@ -745,6 +1078,233 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
+  }
+
+  Widget _buildUserVehiclesRow() {
+    return Row(
+      children: [
+        Container(
+          padding: EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.purple.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(Icons.directions_car, size: 16, color: Colors.purple),
+        ),
+        SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'Your Vehicles',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (userParkedVehicles.isNotEmpty) ...[
+                    SizedBox(width: 8),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        '${userParkedVehicles.length}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.blue.shade700,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (_isRefreshingVehicle) ...[
+                    SizedBox(width: 8),
+                    SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.purple,
+                      ),
+                    ),
+                  ],
+                  if (_vehicleRefreshTimer != null && !_isRefreshingVehicle) ...[
+                    SizedBox(width: 8),
+                    Icon(
+                      Icons.refresh,
+                      size: 12,
+                      color: Colors.green.shade600,
+                    ),
+                  ],
+                ],
+              ),
+              SizedBox(height: 4),
+              _buildVehiclesInfo(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVehiclesInfo() {
+    if (userParkedVehicles.isEmpty) {
+      return Text(
+        'No vehicles parked in this lot',
+        style: TextStyle(
+          fontSize: 14,
+          color: Colors.grey.shade500,
+          fontStyle: FontStyle.italic,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Show each vehicle
+        ...userParkedVehicles.asMap().entries.map((entry) {
+          int index = entry.key;
+          Map<String, dynamic> vehicle = entry.value;
+          
+          return Container(
+            margin: EdgeInsets.only(bottom: index < userParkedVehicles.length - 1 ? 8 : 0),
+            child: _buildSingleVehicleInfo(vehicle, index + 1),
+          );
+        }).toList(),
+        
+        // Show auto-refresh info
+        if (_vehicleRefreshTimer != null && _lastVehicleUpdate != null) ...[
+          SizedBox(height: 8),
+          Text(
+            'Auto-refresh: ${_formatTime(_lastVehicleUpdate!.toIso8601String())} (every 15s)',
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.grey.shade500,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSingleVehicleInfo(Map<String, dynamic> vehicle, int vehicleNumber) {
+    String licensePlate = vehicle['license_plate'] ?? 'Unknown';
+    String slotName = vehicle['slot_name'] ?? '';
+    int numSlot = vehicle['num_slot'] ?? 0;
+    String timeIn = vehicle['time_in'] ?? '';
+
+    // Determine status based on num_slot logic (similar to Unity code)
+    String statusText;
+    Color statusColor;
+    
+    if (numSlot > 1) {
+      statusText = 'Vehicle parked incorrectly';
+      statusColor = Colors.red;
+    } else if (numSlot == 0) {
+      statusText = 'Vehicle not in designated slot';
+      statusColor = Colors.orange;
+    } else {
+      statusText = slotName.isNotEmpty ? 'Slot: $slotName' : 'In designated slot';
+      statusColor = Colors.green;
+    }
+
+    return Container(
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Vehicle header with number
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.purple.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.purple.withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  'Vehicle $vehicleNumber',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.purple.shade700,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              if (timeIn.isNotEmpty) ...[
+                SizedBox(width: 8),
+                Text(
+                  'Since: ${_formatTime(timeIn)}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          SizedBox(height: 6),
+          
+          // License plate row
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  licensePlate,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.blue.shade700,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 4),
+          
+          // Status row
+          Text(
+            statusText,
+            style: TextStyle(
+              fontSize: 12,
+              color: statusColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTime(String timeIn) {
+    try {
+      DateTime dateTime = DateTime.parse(timeIn);
+      return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return timeIn; // Return original if parsing fails
+    }
   }
 
   // Widget _buildLicensesRow(List<dynamic> licenses) - COMMENTED (not needed for now)
@@ -830,13 +1390,36 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Environment',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w500,
-                ),
+              Row(
+                children: [
+                  Text(
+                    'Environment',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (_isRefreshingEnvironment) ...[
+                    SizedBox(width: 8),
+                    SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.teal,
+                      ),
+                    ),
+                  ],
+                  if (_environmentRefreshTimer != null && !_isRefreshingEnvironment) ...[
+                    SizedBox(width: 8),
+                    Icon(
+                      Icons.refresh,
+                      size: 12,
+                      color: Colors.green.shade600,
+                    ),
+                  ],
+                ],
               ),
               SizedBox(height: 4),
               Row(

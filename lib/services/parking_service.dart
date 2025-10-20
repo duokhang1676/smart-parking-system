@@ -68,6 +68,85 @@ class ParkingService {
     }
   }
 
+  // Get user's parked vehicles in specific parking lot (returns list of vehicles)
+  static Future<List<Map<String, dynamic>>> getUserParkedVehicle(String userId, String parkingId) async {
+    final data = {
+      'user_id': userId,
+      'parking_id': parkingId,
+    };
+    
+    try {
+      final response = await ApiService.post('/parked_vehicles/get_user_parked_vehicle', data);
+      
+      if (response['status'] == 'success' && response['data'] != null) {
+        // API returns a list of vehicles
+        List<dynamic> vehiclesData = response['data'];
+        
+        // Convert to list of maps
+        List<Map<String, dynamic>> vehicles = vehiclesData.map((vehicleData) => {
+          'license_plate': vehicleData['license_plate'],
+          'slot_name': vehicleData['slot_name'],
+          'time_in': vehicleData['time_in'],
+          'parking_id': vehicleData['parking_id'],
+          'num_slot': vehicleData['num_slot'],
+        }).toList();
+        
+        print('Found ${vehicles.length} parked vehicles for user $userId in parking $parkingId');
+        return vehicles;
+        
+      } else if (response['status'] == 'not_found') {
+        // No vehicles found for this user in this parking lot
+        print('No parked vehicles found for user $userId in parking $parkingId');
+        return [];
+      } else {
+        throw Exception(response['message'] ?? 'Failed to get user parked vehicles');
+      }
+    } catch (e) {
+      print('Error getting user parked vehicles: $e');
+      rethrow;
+    }
+  }
+
+  // Get environment data - for temperature, humidity, light display
+  static Future<Map<String, dynamic>> getEnvironmentData(String parkingId) async {
+    final data = {
+      'parking_id': parkingId,
+    };
+    
+    try {
+      final response = await ApiService.post('/environments/get_environment', data);
+      
+      if (response['status'] == 'success' && response['data'] != null) {
+        Map<String, dynamic> envData = response['data'];
+        
+        return {
+          'temperature': envData['temperature']?.toString() ?? 'N/A',
+          'humidity': envData['humidity']?.toString() ?? 'N/A',
+          'light': envData['light']?.toString() ?? 'N/A',
+          'parking_id': envData['parking_id'] ?? parkingId,
+        };
+      } else {
+        // Return default values if API fails or environment not found
+        print('Environment data not found for parking_id: $parkingId');
+        return {
+          'temperature': 'N/A',
+          'humidity': 'N/A', 
+          'light': 'N/A',
+          'parking_id': parkingId,
+        };
+      }
+    } catch (e) {
+      print('Error getting environment data: $e');
+      // Return default values on error
+      return {
+        'temperature': 'N/A',
+        'humidity': 'N/A',
+        'light': 'N/A', 
+        'parking_id': parkingId,
+      };
+    }
+  }
+
 //   // Get all parking lots - using your parking blueprint
 //   static Future<List<Map<String, dynamic>>> getParkingLots() async {
 //     try {
