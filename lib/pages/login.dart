@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:smart_parking/pages/color.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
+import '../services/user_session.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -46,22 +48,25 @@ class _LoginPageState extends State<LoginPage> {
         // Login successful - extract user_id from message field
         final userId = AuthService.getUserIdFromResponse(response);
         
-        print('Login response: $response');
-        print('Extracted user data: {userId: $userId, userPhone: $userId, userName: User}');
-        
-        // Show success message
-        _showSuccessMessage('Login successful! Welcome back.');
-        
-        // Navigate to home page with user data
-        Navigator.pushReplacementNamed(
-          context, 
-          '/main',
-          arguments: {
-            'userId': userId,                // This is the phone number from database user_id field
-            'userPhone': userId,             // Same as userId since user_id IS the phone number
-            'userName': 'User',              // Will be loaded from database name field via API
-          },
-        );
+        if (userId != null && userId.isNotEmpty) {
+          print('Login response: $response');
+          print('Extracted user data: {userId: $userId, userPhone: $userId}');
+          
+          // Initialize UserSession with user data
+          final userSession = Provider.of<UserSession>(context, listen: false);
+          await userSession.initializeSession(
+            userId: userId,
+            userPhone: userId,
+          );
+          
+          // Show success message
+          _showSuccessMessage('Login successful! Welcome back.');
+          
+          // Navigate to home page (no need to pass userData anymore)
+          Navigator.pushReplacementNamed(context, '/main');
+        } else {
+          _showErrorMessage('Invalid user ID received from server');
+        }
         
       } else {
         // Login failed - show error from server

@@ -147,6 +147,58 @@ class ParkingService {
     }
   }
 
+  // Get all active parking lots for search functionality
+  static Future<List<Map<String, dynamic>>> getActiveParkings() async {
+    try {
+      // Use getRaw since this API returns a direct JSON array
+      final response = await ApiService.getRaw('/parking/get_active');
+      
+      if (response is List) {
+        // Direct array response - convert each item to Map<String, dynamic>
+        return response.map((item) => Map<String, dynamic>.from(item as Map)).toList();
+      } else {
+        // Log the actual response format for debugging
+        print('Unexpected response format for active parkings: $response');
+        print('Response type: ${response.runtimeType}');
+        return [];
+      }
+      
+    } catch (e) {
+      print('Error getting active parkings: $e');
+      // Return empty list on error
+      return [];
+    }
+  }
+
+  // Register monthly parking
+  static Future<Map<String, dynamic>> registerMonthlyParking({
+    required String userId,
+    required String parkingId,
+    required String licensePlate,
+  }) async {
+    try {
+      final data = {
+        'user_id': userId,
+        'parking_id': parkingId,
+        'license_plate': licensePlate,
+      };
+
+      print('Registering monthly parking:');
+      print('  - User ID: $userId');
+      print('  - Parking ID: $parkingId');
+      print('  - License Plate: $licensePlate');
+
+      final response = await ApiService.post('/registers/add_register_parking', data);
+      
+      print('Registration response: $response');
+      return response;
+      
+    } catch (e) {
+      print('Error registering monthly parking: $e');
+      rethrow; // Let the calling code handle the specific error
+    }
+  }
+
 //   // Get all parking lots - using your parking blueprint
 //   static Future<List<Map<String, dynamic>>> getParkingLots() async {
 //     try {

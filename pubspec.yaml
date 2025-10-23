@@ -38,6 +38,8 @@ dependencies:
   simple_animations: ^5.2.0
   qr_flutter: ^4.1.0
   http: ^1.1.0
+  shared_preferences: ^2.2.2
+  provider: ^6.1.1
 
 dev_dependencies:
   flutter_test:

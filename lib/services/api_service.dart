@@ -34,6 +34,25 @@ class ApiService {
     }
   }
 
+  // Generic GET request that returns raw JSON (for APIs that return arrays)
+  static Future<dynamic> getRaw(String endpoint) async {
+    try {
+      final url = Uri.parse('$baseUrl$endpoint');
+      final response = await http.get(url, headers: headers);
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw ApiException('Failed to load data: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (e is ApiException) {
+        rethrow;
+      }
+      throw NetworkException('Unable to connect to server. Please check your internet connection.');
+    }
+  }
+
   // Generic POST request
   static Future<Map<String, dynamic>> post(String endpoint, Map<String, dynamic> data) async {
     try {

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:provider/provider.dart';
 import 'dart:async';
 import '../services/user_service.dart';
 import '../services/parking_service.dart';
 import '../services/api_service.dart';
+import '../services/user_session.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -69,7 +71,30 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    // No default selection since there's no data
+    // Initialize with UserSession data
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeWithUserSession();
+    });
+  }
+
+  void _initializeWithUserSession() {
+    final userSession = Provider.of<UserSession>(context, listen: false);
+    
+    if (userSession.isLoggedIn && !_hasLoadedData) {
+      setState(() {
+        userId = userSession.userId;
+        userPhoneNumber = userSession.userPhone;
+        userName = userSession.userName;
+      });
+      
+      print('Home page initialized with UserSession: userId=$userId, phone=$userPhoneNumber, name=$userName');
+      
+      // Load user's data from APIs
+      if (userId.isNotEmpty) {
+        _loadUserData();
+        _hasLoadedData = true;
+      }
+    }
   }
 
   @override
@@ -81,51 +106,12 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    
-    // Only load data once to prevent resetting dropdown selection
-    if (_hasLoadedData) return;
-    
-    // Get user data passed from login page
-    final Map<String, dynamic>? args = 
-        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    
-    if (args != null) {
-      setState(() {
-        userId = args['userId'] ?? '';           // Phone number (from database user_id field)
-        userPhoneNumber = args['userPhone'] ?? ''; // Same as userId 
-        userName = args['userName'] ?? 'User';     // Default, will be loaded from database
-      });
-      
-      print('Home page received user data: userId=$userId, phone=$userPhoneNumber, name=$userName');
-      
-      // Load user's actual data from database using the userId (phone number)
-      if (userId.isNotEmpty) {
-        _loadUserData();
-        _hasLoadedData = true; // Mark as loaded to prevent reload
-      }
-    }
-  }
-
-  // Load user-specific data from APIs
+  // Load user-specific data from APIs  
   Future<void> _loadUserData() async {
     print('Loading user data for userId: $userId');
     
     try {
-      // Get real user information from database
-      final userInfo = await UserService.getUserInfo(userId);
-      
-      setState(() {
-        // Update user name from database
-        userName = userInfo['name'] ?? 'User';
-        // userPhoneNumber remains the same as it's the user_id
-      });
-      
-      print('Updated user info from API: name=$userName, userId=$userId');
-      
-      // Load user's registered parkings
+      // Load user's registered parkings (no need to call getUserInfo since UserSession already has it)
       await _loadUserRegisteredParkings();
       
     } catch (e) {
