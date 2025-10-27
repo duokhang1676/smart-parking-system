@@ -61,4 +61,38 @@ class UserService {
       rethrow;
     }
   }
+
+  // Get registered vehicles for a user
+  static Future<List<Map<String, dynamic>>> getRegisteredVehicles(String userId) async {
+    try {
+      final response = await ApiService.post('/registers/get_registered_vehicles', {
+        'user_id': userId,
+      });
+      
+      if (response['status'] == 'success') {
+        return List<Map<String, dynamic>>.from(response['data'] ?? []);
+      } else {
+        throw Exception(response['message'] ?? 'Failed to get registered vehicles');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Get parking histories for a user
+  static Future<List<Map<String, dynamic>>> getParkingHistories(String userId) async {
+    try {
+      final response = await ApiService.post('/histories/get_parking_histories', {
+        'user_id': userId,
+      });
+      
+      if (response['status'] == 'success') {
+        return List<Map<String, dynamic>>.from(response['data'] ?? []);
+      } else {
+        throw Exception(response['message'] ?? 'Failed to get parking histories');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

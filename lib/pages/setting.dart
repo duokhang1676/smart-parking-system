@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/user_session.dart';
+import '../services/user_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -19,6 +20,16 @@ class _SettingsPageState extends State<SettingsPage> {
   bool locationEnabled = true;
   String selectedLanguage = 'English';
   bool isLoading = true;
+  
+  // Vehicles section expansion state
+  bool isVehiclesExpanded = false;
+  bool isLoadingVehicles = false;
+  static const int maxVehiclesPreview = 3; // Show first 3 vehicles by default
+  
+  // Parking history section expansion state
+  bool isHistoryExpanded = false;
+  bool isLoadingHistory = false;
+  static const int maxHistoryPreview = 3; // Show first 3 history records by default
 
   @override
   void initState() {
@@ -51,11 +62,83 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _loadVehicles() async {
-    registeredVehicles = [];
+    setState(() {
+      isLoadingVehicles = true;
+    });
+    
+    try {
+      final userSession = Provider.of<UserSession>(context, listen: false);
+      if (userSession.userId.isEmpty) {
+        setState(() {
+          registeredVehicles = [];
+          isLoadingVehicles = false;
+        });
+        return;
+      }
+      
+      debugPrint('Loading registered vehicles for userId: ${userSession.userId}');
+      final vehicles = await UserService.getRegisteredVehicles(userSession.userId);
+      
+      setState(() {
+        registeredVehicles = vehicles;
+        isLoadingVehicles = false;
+      });
+      
+      debugPrint('Loaded ${vehicles.length} registered vehicles');
+    } catch (e) {
+      debugPrint('Error loading vehicles: $e');
+      // Keep empty list on error
+      setState(() {
+        registeredVehicles = [];
+        isLoadingVehicles = false;
+      });
+    }
   }
 
   Future<void> _loadParkingHistory() async {
-    parkingHistory = [];
+    setState(() {
+      isLoadingHistory = true;
+    });
+
+    try {
+      final userSession = Provider.of<UserSession>(context, listen: false);
+      
+      if (!userSession.isValidSession()) {
+        setState(() {
+          parkingHistory = [];
+          isLoadingHistory = false;
+        });
+        return;
+      }
+      
+      debugPrint('Loading parking history for userId: ${userSession.userId}');
+      final histories = await UserService.getParkingHistories(userSession.userId);
+      
+      // Debug: Print received data structure
+      debugPrint('Received history data: $histories');
+      for (int i = 0; i < histories.length && i < 2; i++) {
+        debugPrint('History $i: ${histories[i]}');
+        debugPrint('  - license_plate: ${histories[i]['license_plate']}');
+        debugPrint('  - parking_name: ${histories[i]['parking_name']}');
+        debugPrint('  - parking_time: ${histories[i]['parking_time']} (${histories[i]['parking_time'].runtimeType})');
+        debugPrint('  - total_price: ${histories[i]['total_price']} (${histories[i]['total_price'].runtimeType})');
+        debugPrint('  - time_in: ${histories[i]['time_in']}');
+        debugPrint('  - time_out: ${histories[i]['time_out']}');
+      }
+      
+      setState(() {
+        parkingHistory = histories;
+        isLoadingHistory = false;
+      });
+      
+      debugPrint('Loaded ${histories.length} parking history records');
+    } catch (e) {
+      debugPrint('Error loading parking history: $e');
+      setState(() {
+        parkingHistory = [];
+        isLoadingHistory = false;
+      });
+    }
   }
 
   @override
@@ -224,15 +307,96 @@ class _SettingsPageState extends State<SettingsPage> {
                   ],
                 ),
               ),
+              if (!isLoadingVehicles)
+                IconButton(
+                  icon: Icon(Icons.refresh, color: Colors.green.shade600),
+                  onPressed: _loadVehicles,
+                  tooltip: 'Refresh vehicles',
+                ),
             ],
           ),
           SizedBox(height: 16),
-          if (registeredVehicles.isEmpty)
+          if (isLoadingVehicles)
+            Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (registeredVehicles.isEmpty)
             _buildEmptyVehiclesState()
           else
-            ...registeredVehicles.map((vehicle) => _buildVehicleCard(vehicle)),
+            _buildVehiclesList(),
         ],
       ),
+    );
+  }
+
+  Widget _buildVehiclesList() {
+    final shouldShowExpandButton = registeredVehicles.length > maxVehiclesPreview;
+    final vehiclesToShow = isVehiclesExpanded 
+        ? registeredVehicles 
+        : registeredVehicles.take(maxVehiclesPreview).toList();
+
+    return Column(
+      children: [
+        // Vehicles list container
+        Container(
+          constraints: isVehiclesExpanded && registeredVehicles.length > 5
+              ? BoxConstraints(maxHeight: 300) // Fixed height for scrolling
+              : null,
+          child: isVehiclesExpanded && registeredVehicles.length > 5
+              ? SingleChildScrollView(
+                  child: Column(
+                    children: vehiclesToShow.map((vehicle) => _buildVehicleCard(vehicle)).toList(),
+                  ),
+                )
+              : Column(
+                  children: vehiclesToShow.map((vehicle) => _buildVehicleCard(vehicle)).toList(),
+                ),
+        ),
+        
+        // Expand/Collapse button
+        if (shouldShowExpandButton) ...[
+          SizedBox(height: 12),
+          InkWell(
+            onTap: () {
+              setState(() {
+                isVehiclesExpanded = !isVehiclesExpanded;
+              });
+            },
+            child: Container(
+              padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isVehiclesExpanded ? Icons.expand_less : Icons.expand_more,
+                    color: Colors.blue.shade600,
+                    size: 20,
+                  ),
+                  SizedBox(width: 4),
+                  Text(
+                    isVehiclesExpanded 
+                        ? 'Show Less'
+                        : 'Show All ${registeredVehicles.length} Vehicles',
+                    style: TextStyle(
+                      color: Colors.blue.shade600,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -241,10 +405,10 @@ class _SettingsPageState extends State<SettingsPage> {
       margin: EdgeInsets.only(bottom: 12),
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: vehicle['isPrimary'] ? Colors.blue.shade50 : Colors.grey.shade50,
+        color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: vehicle['isPrimary'] ? Colors.blue.shade200 : Colors.grey.shade200,
+          color: Colors.grey.shade200,
         ),
       ),
       child: Row(
@@ -252,12 +416,12 @@ class _SettingsPageState extends State<SettingsPage> {
           Container(
             padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: vehicle['isPrimary'] ? Colors.blue.shade100 : Colors.grey.shade200,
+              color: Colors.blue.shade100,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
-              Icons.car_rental,
-              color: vehicle['isPrimary'] ? Colors.blue.shade600 : Colors.grey.shade600,
+              Icons.directions_car,
+              color: Colors.blue.shade600,
               size: 20,
             ),
           ),
@@ -266,49 +430,34 @@ class _SettingsPageState extends State<SettingsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Text(
+                  vehicle['license_plate'] ?? 'Unknown',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                SizedBox(height: 4),
                 Row(
                   children: [
-                    Text(
-                      vehicle['licensePlate'],
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                    Icon(
+                      Icons.local_parking,
+                      size: 16,
+                      color: Colors.grey.shade600,
+                    ),
+                    SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        vehicle['parking_name'] ?? 'Unknown Parking',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade700,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (vehicle['isPrimary']) ...[
-                      SizedBox(width: 8),
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade600,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          'PRIMARY',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
                   ],
-                ),
-                Text(
-                  '${vehicle['year']} ${vehicle['make']} ${vehicle['model']}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade700,
-                  ),
-                ),
-                Text(
-                  'Color: ${vehicle['color']}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
                 ),
               ],
             ),
@@ -365,7 +514,11 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                     ),
                     Text(
-                      'Recent parking sessions',
+                      isLoadingHistory 
+                        ? 'Loading...'
+                        : parkingHistory.isEmpty 
+                          ? 'No parking history'
+                          : '${parkingHistory.length} record${parkingHistory.length != 1 ? 's' : ''}',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey.shade600,
@@ -374,25 +527,70 @@ class _SettingsPageState extends State<SettingsPage> {
                   ],
                 ),
               ),
-              TextButton(
-                onPressed: () {
-                  _showFullHistoryDialog();
-                },
-                child: Text('View All'),
-              ),
+              if (isLoadingHistory)
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else ...[
+                IconButton(
+                  onPressed: _loadParkingHistory,
+                  icon: Icon(Icons.refresh, size: 20),
+                  tooltip: 'Refresh History',
+                ),
+                if (parkingHistory.length > maxHistoryPreview)
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        isHistoryExpanded = !isHistoryExpanded;
+                      });
+                    },
+                    child: Text(isHistoryExpanded ? 'Show Less' : 'Show All'),
+                  ),
+              ],
             ],
           ),
           SizedBox(height: 16),
-          if (parkingHistory.isEmpty)
+          if (isLoadingHistory)
+            Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (parkingHistory.isEmpty)
             _buildEmptyHistoryState()
           else
-            ...parkingHistory.take(3).map((history) => _buildHistoryCard(history)),
+            _buildHistoryList(),
         ],
       ),
     );
   }
 
   Widget _buildHistoryCard(Map<String, dynamic> history) {
+    // Parse datetime strings
+    DateTime? timeIn;
+    DateTime? timeOut;
+    
+    try {
+      timeIn = DateTime.parse(history['time_in']);
+      timeOut = DateTime.parse(history['time_out']);
+    } catch (e) {
+      debugPrint('Error parsing datetime: $e');
+    }
+    
+    // Format date and time
+    String formatDate(DateTime? dateTime) {
+      if (dateTime == null) return 'N/A';
+      return '${dateTime.day.toString().padLeft(2, '0')}/${dateTime.month.toString().padLeft(2, '0')}/${dateTime.year}';
+    }
+    
+    String formatTime(DateTime? dateTime) {
+      if (dateTime == null) return 'N/A';
+      return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+    }
+    
     return Container(
       margin: EdgeInsets.only(bottom: 12),
       padding: EdgeInsets.all(16),
@@ -406,12 +604,14 @@ class _SettingsPageState extends State<SettingsPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                history['date'],
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+              Expanded(
+                child: Text(
+                  history['license_plate'] ?? 'Unknown',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
                 ),
               ),
               Container(
@@ -421,7 +621,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  history['status'],
+                  '${(history['parking_time'] ?? 0).toStringAsFixed(1)}h',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.green.shade700,
@@ -433,7 +633,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           SizedBox(height: 8),
           Text(
-            history['location'],
+            history['parking_name'] ?? 'Unknown Location',
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey.shade700,
@@ -443,15 +643,17 @@ class _SettingsPageState extends State<SettingsPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '${history['timeIn']} - ${history['timeOut']}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
+              Expanded(
+                child: Text(
+                  'In: ${formatTime(timeIn)} ${formatDate(timeIn)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
                 ),
               ),
               Text(
-                '${history['duration']} • ${history['cost']}',
+                '${_formatCurrency(history['total_price'])}',
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.grey.shade600,
@@ -459,6 +661,92 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ),
             ],
+          ),
+          if (timeOut != null)
+            Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: Text(
+                'Out: ${formatTime(timeOut)} ${formatDate(timeOut)}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _formatCurrency(dynamic price) {
+    if (price == null) return 'VND 0';
+    
+    double amount = price is double ? price : double.tryParse(price.toString()) ?? 0;
+    
+    // Format với dấu phẩy ngăn cách hàng nghìn
+    String formatted = amount.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
+    
+    return 'VND $formatted';
+  }
+
+  Widget _buildHistoryList() {
+    final displayedHistories = isHistoryExpanded 
+        ? parkingHistory 
+        : parkingHistory.take(maxHistoryPreview).toList();
+    
+    if (parkingHistory.length > maxHistoryPreview && !isHistoryExpanded) {
+      return Column(
+        children: [
+          ...displayedHistories.map((history) => _buildHistoryCard(history)),
+          Container(
+            height: 300,
+            child: SingleChildScrollView(
+              child: Column(
+                children: parkingHistory.skip(maxHistoryPreview)
+                    .map((history) => _buildHistoryCard(history))
+                    .toList(),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    
+    return Column(
+      children: displayedHistories.map((history) => _buildHistoryCard(history)).toList(),
+    );
+  }
+
+  Widget _buildEmptyHistoryState() {
+    return Container(
+      padding: EdgeInsets.all(20),
+      child: Column(
+        children: [
+          Icon(
+            Icons.history,
+            size: 48,
+            color: Colors.grey.shade400,
+          ),
+          SizedBox(height: 12),
+          Text(
+            'No Parking History',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Your parking sessions will appear here',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade500,
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -747,39 +1035,6 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildEmptyHistoryState() {
-    return Container(
-      padding: EdgeInsets.all(24),
-      child: Column(
-        children: [
-          Icon(
-            Icons.history,
-            size: 48,
-            color: Colors.grey.shade400,
-          ),
-          SizedBox(height: 12),
-          Text(
-            'No Parking History',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey.shade600,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Your parking sessions will appear here',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade500,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
   // Dialog methods
   void _showEditProfileDialog() {
     showDialog(
@@ -819,22 +1074,6 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (context) => AlertDialog(
         title: Text('Vehicle Options'),
         content: Text('Options for ${vehicle['licensePlate']}'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showFullHistoryDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Full History'),
-        content: Text('Full parking history coming soon!'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
