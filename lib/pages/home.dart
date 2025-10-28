@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import '../services/user_service.dart';
 import '../services/parking_service.dart';
@@ -16,7 +17,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // User information (will be loaded from login/session)
+  // User information
   String userPhoneNumber = "";
   String userName = "";
   String userId = "";
@@ -32,10 +33,10 @@ class _HomePageState extends State<HomePage> {
   String currentParkingAddress = "";
   String currentParkingId = "";  // Will be set to parking name or extracted ID
   
-  // Parking lots data for dropdown (empty initially)
+  // Parking lots data for dropdown
   List<Map<String, dynamic>> parkingLots = [];
 
-  // Detailed parking lot information (empty initially)
+  // Detailed parking lot information
   Map<String, Map<String, dynamic>> parkingLotDetails = {};
   
   // User's parked vehicles information in current parking lot (list of vehicles)
@@ -99,7 +100,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    // Cancel timers when widget is disposed
     _vehicleRefreshTimer?.cancel();
     _environmentRefreshTimer?.cancel();
     _parkingStatusRefreshTimer?.cancel();
@@ -111,12 +111,12 @@ class _HomePageState extends State<HomePage> {
     print('Loading user data for userId: $userId');
     
     try {
-      // Load user's registered parkings (no need to call getUserInfo since UserSession already has it)
+      // Load user's registered parkings
       await _loadUserRegisteredParkings();
       
     } catch (e) {
       print('Failed to load user info: $e');
-      // Handle error - maybe show a message to user
+      // Handle error
       if (e is NetworkException) {
         print('Network connection error');
       } else if (e is NotFoundException) {
@@ -135,22 +135,42 @@ class _HomePageState extends State<HomePage> {
       // Get registered parkings list from API
       final registeredParkings = await UserService.getUserRegisters(userId);
       
+      // Load saved selection from SharedPreferences
+      String? savedSelection = await _loadSavedSelection();
+      
       setState(() {
-        // Convert to dropdown format
+        // Convert to dropdown format and reverse the order
         parkingLots = registeredParkings.map((parkingString) => {
           'value': parkingString,
           'display': parkingString,
-        }).toList();
+        }).toList().reversed.toList();
         
-        // Auto select first option ONLY if no selection has been made yet
-        if (parkingLots.isNotEmpty && selectedParkingLot == null) {
+        // Check if saved selection exists and is still valid
+        if (savedSelection != null && parkingLots.any((lot) => lot['value'] == savedSelection)) {
+          selectedParkingLot = savedSelection;
+          _processSelectedParking(selectedParkingLot!);
+          print('Restored saved selection: ${selectedParkingLot}');
+        }
+        // Auto select first option ONLY if no valid saved selection
+        else if (parkingLots.isNotEmpty && selectedParkingLot == null) {
           selectedParkingLot = parkingLots[0]['value'];
           _processSelectedParking(selectedParkingLot!);
           print('Auto-selected first parking: ${selectedParkingLot}');
+          // Save this auto-selection
+          _saveSelectedParking(selectedParkingLot!);
         }
-        // If user already selected something, keep their selection
+        // If user already had a selection but it's no longer valid
+        else if (selectedParkingLot != null && !parkingLots.any((lot) => lot['value'] == selectedParkingLot)) {
+          print('Previous selection no longer valid, selecting first available');
+          selectedParkingLot = parkingLots.isNotEmpty ? parkingLots[0]['value'] : null;
+          if (selectedParkingLot != null) {
+            _processSelectedParking(selectedParkingLot!);
+            _saveSelectedParking(selectedParkingLot!);
+          }
+        }
+        // Keep current valid selection
         else if (selectedParkingLot != null) {
-          print('Keeping user selection: ${selectedParkingLot}');
+          print('Keeping current valid selection: ${selectedParkingLot}');
         }
       });
       
@@ -186,7 +206,7 @@ class _HomePageState extends State<HomePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Row 1: Parking Name (from parsed data)
+          // Row 1: Parking Name
           _buildInfoRow(
             icon: Icons.local_parking,
             label: 'Parking Name',
@@ -195,7 +215,7 @@ class _HomePageState extends State<HomePage> {
           ),
           SizedBox(height: 10),
           
-          // Row 2: Address (from parsed data)
+          // Row 2: Address
           _buildInfoRow(
             icon: Icons.location_on,
             label: 'Address',
@@ -232,7 +252,31 @@ class _HomePageState extends State<HomePage> {
     );
   }
   
-  // Process selected parking string (similar to Unity ProcessAndDisplayInfo)
+  // Save selected parking to SharedPreferences
+  Future<void> _saveSelectedParking(String parkingSelection) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('selected_parking_$userId', parkingSelection);
+      print('Saved parking selection: $parkingSelection for user: $userId');
+    } catch (e) {
+      print('Failed to save parking selection: $e');
+    }
+  }
+  
+  // Load saved parking selection from SharedPreferences
+  Future<String?> _loadSavedSelection() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedSelection = prefs.getString('selected_parking_$userId');
+      print('Loaded saved selection: $savedSelection for user: $userId');
+      return savedSelection;
+    } catch (e) {
+      print('Failed to load saved selection: $e');
+      return null;
+    }
+  }
+  
+  // Process selected parking string
   void _processSelectedParking(String selectedString) {
     print('Processing selected parking: $selectedString');
     
@@ -785,6 +829,8 @@ class _HomePageState extends State<HomePage> {
                       print('Updated selectedParkingLot to: $selectedParkingLot');
                       if (newValue != null) {
                         _showCategoryInfo(newValue);
+                        // Save the selection to SharedPreferences
+                        _saveSelectedParking(newValue);
                       }
                     },
                   ),

@@ -925,14 +925,14 @@ class _SettingsPageState extends State<SettingsPage> {
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 14,
                   color: Colors.grey.shade600,
                 ),
               ),
               Text(
                 value,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 16,
                   color: Colors.black87,
                   fontWeight: FontWeight.w500,
                 ),
