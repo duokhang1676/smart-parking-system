@@ -1,40 +1,40 @@
 - id: A0
-  coordinate: [129, 123]
+  coordinate: [328, 603]
 - id: A1
-  coordinate: [115, 174]
+  coordinate: [364, 495]
 - id: A2
-  coordinate: [100, 231]
+  coordinate: [395, 380]
 - id: A3
-  coordinate: [84, 296]
+  coordinate: [420, 275]
 - id: A4
-  coordinate: [67, 362]
+  coordinate: [438, 188]
 - id: B0
-  coordinate: [266, 131]
+  coordinate: [184, 506]
 - id: B1
-  coordinate: [265, 178]
+  coordinate: [222, 395]
 - id: B2
-  coordinate: [263, 230]
+  coordinate: [253, 297]
 - id: B3
-  coordinate: [260, 295]
+  coordinate: [286, 201]
 - id: B4
-  coordinate: [254, 370]
+  coordinate: [310, 124]
 - id: C0
-  coordinate: [338, 133]
+  coordinate: [108, 438]
 - id: C1
-  coordinate: [340, 178]
+  coordinate: [147, 337]
 - id: C2
-  coordinate: [343, 233]
+  coordinate: [178, 245]
 - id: C3
-  coordinate: [346, 295]
+  coordinate: [210, 163]
 - id: C4
-  coordinate: [352, 366]
+  coordinate: [241, 84]
 - id: D0
-  coordinate: [465, 136]
+  coordinate: [23, 353]
 - id: D1
-  coordinate: [479, 183]
+  coordinate: [57, 262]
 - id: D2
-  coordinate: [490, 236]
+  coordinate: [91, 191]
 - id: D3
-  coordinate: [504, 298]
+  coordinate: [121, 115]
 - id: D4
-  coordinate: [521, 366]
+  coordinate: [151, 55]

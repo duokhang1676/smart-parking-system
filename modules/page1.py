@@ -14,7 +14,7 @@ class ParkingSlotPage(QWidget):
         # Timer for data update
         self.timer = QTimer()
         self.timer.timeout.connect(self.fetch_and_update_data)
-        self.timer.start(2000)
+        self.timer.start(1000)
 
     def init_ui(self):
         layout = QGridLayout()
@@ -80,7 +80,7 @@ class ParkingSlotPage(QWidget):
             for slot_name, widget in self.slots.items():
                 license_value = occupied_data.get(slot_name, "")
                 license_label = widget.layout().itemAt(1).widget()
-                license_label.setText(license_value)
+                license_label.setText(str(license_value))
                 self.update_slot_color(widget, license_value)
 
         except Exception as e:
