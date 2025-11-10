@@ -5,12 +5,16 @@ __pycache__/
 *.so
 .Python
 
-# Virtual Environment
+# Virtual Environment - QUAN TRỌNG!
 .venv/
 venv/
 ENV/
 env/
+
+# Environment variables - BẢO MẬT
 .env
+.env.local
+.env.*.local
 
 # IDE
 .vscode/
@@ -45,3 +49,7 @@ resources/models/*.onnx
 build/
 dist/
 *.egg-info/
+# Backups
+backups/
+*.bson
+backup_*.json
