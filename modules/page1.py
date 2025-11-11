@@ -3,10 +3,21 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QColor, QPalette, QFont
 import requests
 import random
+from database.db_manager import get_parking_id, get_cloud_server_url
 
 class ParkingSlotPage(QWidget):
     def __init__(self):
         super().__init__()
+        
+        # Lấy PARKING_ID từ config
+        self.parking_id = get_parking_id()
+        print(f"Page 1 đang quản lý bãi xe: {self.parking_id}")
+        
+        # Lấy Cloud Server URL từ config
+        self.cloud_server_url = get_cloud_server_url()
+        self.url_cloud_server = self.cloud_server_url  # Alias để Thread có thể dùng
+        print(f"Cloud Server: {self.cloud_server_url}")
+        
         self.slot_names = ['A0', 'B0', 'C0', 'D0', 'A1', 'B1', 'C1', 'D1', 'A2', 'B2', 'C2', 'D2', 'A3', 'B3', 'C3', 'D3', 'A4', 'B4', 'C4', 'D4']
         self.slots = {}
         self.init_ui()
@@ -54,7 +65,11 @@ class ParkingSlotPage(QWidget):
     def fetch_and_update_data(self):
         # Example URL (replace with the actual API URL)
         # api_url = "http://127.0.0.1:5000/api/parking_slots/get_parking_slots"
-        api_url = "https://parking-cloud-server.onrender.com/api/parking_slots/get_parking_slots"
+        # api_url = "https://parking-cloud-server.onrender.com/api/parking_slots/get_parking_slots"  # ❌ Hard-coded (old)
+        
+        # ✅ Sử dụng URL từ config
+        api_url = f"{self.cloud_server_url}parking_slots/get_parking_slots"
+        
         try:
             # Simulate data (use requests.get(api_url).json() in actual use)
             # Example response: {'occupied_list': ['A0', 'B1', 'C2'], 'occupied_license_list': ['71C3-12345', '56C4-7890', '88D1-4567']}
@@ -62,8 +77,10 @@ class ParkingSlotPage(QWidget):
             #     'occupied_list': random.sample(self.slot_names, 5),
             #     'occupied_license_list': [f"{random.randint(10, 99)}C{random.randint(1000, 9999)}" for _ in range(5)]
             # }
+            
+            # Sử dụng parking_id từ config thay vì hard-coded
             data = {
-                "parking_id": "parking_001"
+                "parking_id": self.parking_id
             }
             response = requests.post(api_url, json=data)
             if response.status_code != 200:

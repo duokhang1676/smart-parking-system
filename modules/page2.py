@@ -17,7 +17,7 @@ class HistoryPage(QWidget):
 
         # Kết nối tới MongoDB qua DatabaseManager
         try:
-            self.collection = get_collection("histories")  # ← Đổi "History" thành "histories"
+            self.collection = get_collection("histories") 
             
             # Kiểm tra kết nối
             if not db_manager.is_connected():

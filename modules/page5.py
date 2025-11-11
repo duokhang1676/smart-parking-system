@@ -9,13 +9,20 @@ from resources.coordinates.coordinates_generator import CoordinatesGenerator
 from resources.coordinates.coordinates_generator_auto import CoordinatesGeneratorAuto
 from resources.coordinates.coordinates_generator_forFirst import CoordinatesGeneratorForFirst
 from modules.utils import *
+from database.db_manager import get_parking_id, get_cloud_server_url
 import re
 
 class CoordinatesSetup(QWidget):
     def __init__(self):
         super().__init__()
-        self.ClOUD_SERVER_URL = 'https://parking-cloud-server.onrender.com/api/'
-        self.PARKING_ID = 'parking_001'
+        
+        # Lấy config từ .env
+        self.PARKING_ID = get_parking_id()
+        self.ClOUD_SERVER_URL = get_cloud_server_url()
+        
+        print(f"Page 5 đang quản lý bãi xe: {self.PARKING_ID}")
+        print(f"Page 5 Cloud Server: {self.ClOUD_SERVER_URL}")
+        
         self.image = None
         self.camera_id = None
         self.curentCam = None

@@ -640,9 +640,10 @@ class Sync_Thread(QThread):
         collection = self.db["Customer"]
         url = self.cameraP.url_cloud_server+"/api/registers/get_register_list" # tên api giống với tên collection
         try:
-            #Gửi yêu cầu POST đến server cloud
+            # Gửi yêu cầu POST đến server cloud
+            # Sử dụng parking_id từ cameraP thay vì hard-coded
             data={
-                "parking_id":"parking_id_1"
+                "parking_id": self.cameraP.parking_id
                 }
             response = requests.post(url, json=data)
             #Kiểm tra mã phản hồi

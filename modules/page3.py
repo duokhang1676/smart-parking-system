@@ -1,8 +1,11 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QDateEdit, QLineEdit, QTableWidget, QTableWidgetItem, QHeaderView, QSizePolicy, QPushButton
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QDateEdit, 
+                             QLineEdit, QTableWidget, QTableWidgetItem, 
+                             QHeaderView, QSizePolicy, QPushButton, QMessageBox, QCompleter)
 from PyQt5.QtGui import QFont
-from pymongo import MongoClient
-from PyQt5.QtCore import Qt
-from datetime import datetime
+from PyQt5.QtCore import Qt, QDate, QTimer, QStringListModel
+from datetime import datetime, timedelta
+
+from database.db_manager import db_manager, get_collection, get_parking_id
 
 class CarsInParkingPage(QWidget):
     def __init__(self):
@@ -11,10 +14,39 @@ class CarsInParkingPage(QWidget):
         self.setStyleSheet("background-color: #FFFFFF;")
         layout = QVBoxLayout(self)
 
+        # Lấy PARKING_ID từ config
+        self.parking_id = get_parking_id()
+        print(f"Page 3 đang quản lý bãi xe: {self.parking_id}")
+
         # Kết nối tới MongoDB
-        self.client = MongoClient("mongodb://localhost:27017/")
-        self.db = self.client["server_local"]
-        self.collection = self.db["Provisional_List"]
+        try:
+            self.collection = get_collection("parked_vehicles")  
+            
+            # Kiểm tra kết nối
+            if not db_manager.is_connected():
+                raise ConnectionError("Không thể kết nối MongoDB")
+                
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Database Error",
+                f"Không thể kết nối MongoDB:\n{str(e)}\n\n"
+                "Kiểm tra:\n"
+                "1. MongoDB server đang chạy\n"
+                "2. File .env có connection string đúng\n"
+                "3. Network connection (nếu dùng Atlas)"
+            )
+            self.collection = None
+
+        # Cache cho license plates (tối ưu hiệu suất search)
+        self.license_plates_cache = []
+        self.cache_timer = QTimer()
+        self.cache_timer.timeout.connect(self.update_license_cache)
+        
+        # Debounce timer cho search (tránh query liên tục khi gõ)
+        self.search_debounce_timer = QTimer()
+        self.search_debounce_timer.setSingleShot(True)
+        self.search_debounce_timer.timeout.connect(self.perform_search)
 
         # Top layout
         main_layout = QVBoxLayout()
@@ -27,14 +59,32 @@ class CarsInParkingPage(QWidget):
         self.search_field.setPlaceholderText("Search by License...")
         self.search_field.setStyleSheet("padding: 5px; font-size: 14px;")
         search_date_layout.addWidget(self.search_field)
+        
+        # Setup QCompleter cho auto-suggest (SAU khi tạo search_field)
+        self.completer = QCompleter()
+        self.completer.setCaseSensitivity(Qt.CaseInsensitive)
+        self.completer.setFilterMode(Qt.MatchContains)  # Tìm substring
+        self.completer.setCompletionMode(QCompleter.PopupCompletion)
+        self.completer_model = QStringListModel()
+        self.completer.setModel(self.completer_model)
+        self.search_field.setCompleter(self.completer)  # ← Bây giờ OK!
 
+        # Button "Search All" để bỏ qua filter ngày
+        self.search_all_button = QPushButton("🔍 All")
+        self.search_all_button.setStyleSheet("font-size: 14px; padding: 5px; max-width: 80px;")
+        self.search_all_button.setToolTip("Tìm kiếm tất cả xe đang đỗ")
+        self.search_all_button.clicked.connect(self.search_all_data)
+        search_date_layout.addWidget(self.search_all_button)
+        
+        # Add search layout to main layout
         main_layout.addLayout(search_date_layout)
 
         # Table widget
         self.table_widget = QTableWidget()
-        self.table_widget.setColumnCount(5)
-        self.table_widget.setHorizontalHeaderLabels(["ID Card", "License Plate", "Customer Type", "Time In", "Parking Time"])
-
+        self.table_widget.setColumnCount(6)  # Thêm cột Slot
+        self.table_widget.setHorizontalHeaderLabels([
+            "License Plate", "User ID", "Customer Type", "Time In", "Parking Time", "Slot"
+        ])
         # Adjust font
         font = QFont()
         font.setPointSize(14)  # Tăng kích thước font
@@ -76,54 +126,237 @@ class CarsInParkingPage(QWidget):
         self.keyPressEvent = self.handle_key_press
 
         # Connect search field and date picker to search function
+        self.search_field.textChanged.connect(self.on_search_text_changed)
         self.search_field.returnPressed.connect(self.search_data)
   
+        # Load cache và refresh table
+        self.update_license_cache()
         self.refresh_table()
 
+    def update_license_cache(self):
+        """
+        Update cache danh sách biển số xe từ MongoDB.
+        Data có cấu trúc NESTED (lồng nhau)!
+        CHỈ lấy xe từ bãi hiện tại (self.parking_id)
+        """
+        if self.collection is None:
+            return
+        
+        try:
+            license_plates = []
+            
+            # Lấy ONLY document của bãi xe hiện tại
+            parking_doc = self.collection.find_one({"parking_id": self.parking_id})
+            
+            if parking_doc:
+                # Lấy mảng "list" chứa các xe
+                vehicles = parking_doc.get("list", [])
+                
+                # Loop qua từng xe trong mảng
+                for vehicle in vehicles:
+                    plate = vehicle.get("license_plate", "")
+                    if plate and plate not in license_plates:
+                        license_plates.append(plate)
+            
+            self.license_plates_cache = license_plates
+            self.completer_model.setStringList(self.license_plates_cache)
+            
+        except Exception as e:
+            print(f"Lỗi update cache: {e}")
+    
+    def on_search_text_changed(self):
+        """Được gọi khi user gõ vào search field - dùng debounce"""
+        # Hủy timer cũ nếu đang chạy
+        self.search_debounce_timer.stop()
+        
+        # Chỉ auto-search nếu có text (tránh query rỗng)
+        if self.search_field.text().strip():
+            # Đợi 500ms sau khi user ngừng gõ mới search
+            self.search_debounce_timer.start(500)
+    
+    def perform_search(self):
+        """Thực hiện search thực sự sau khi debounce"""
+        self.search_data()
+    
+    def search_all_data(self):
+        """Tìm tất cả xe đang đỗ (bỏ qua filter)"""
+        if not self.search_field.text().strip():
+            self.refresh_table()
+        else:
+            self.search_data()
+
     def refresh_table(self):
-        """Refresh the data from MongoDB and update the table."""
-        # Clear existing data in the table
+        """
+        Refresh the data from MongoDB and update the table.
+        
+        Data có cấu trúc NESTED!
+        Document structure:
+        {
+          "parking_id": "parking_001",
+          "list": [
+            {"license_plate": "30K-55055", "user_id": "00", ...},
+            {"license_plate": "30G-49344", "user_id": "01", ...}
+          ]
+        }
+        """
+        if self.collection is None:
+            QMessageBox.warning(self, "Warning", "Không có kết nối database")
+            return
+        
         self.table_widget.setRowCount(0)
 
-        # Retrieve data from MongoDB collection
-        data = self.collection.find().sort("time_in", -1)
-
-        # Populate the table with data from MongoDB
-        for row, record in enumerate(data):
-            self.table_widget.insertRow(row)
-            self.table_widget.setItem(row, 0, QTableWidgetItem(record.get("id_card", "")))
-            self.table_widget.setItem(row, 1, QTableWidgetItem(record.get("license", "")))
-            self.table_widget.setItem(row, 2, QTableWidgetItem(record.get("customer_type", "")))
-            time_in_str = record.get("time_in","").strftime('%Y-%m-%d %H:%M:%S')
-            self.table_widget.setItem(row, 3, QTableWidgetItem(time_in_str))
-            parking_time = (datetime.now() - record.get("time_in","")).total_seconds()/ 3600
-            self.table_widget.setItem(row, 4, QTableWidgetItem(str(f"{parking_time:.2f}")))
+        try:
+            # Lấy ONLY document của bãi xe hiện tại
+            parking_doc = self.collection.find_one({"parking_id": self.parking_id})
+            
+            if not parking_doc:
+                print(f"Không tìm thấy bãi xe {self.parking_id} trong database")
+                return
+            
+            row = 0
+            
+            # Lấy danh sách xe trong bãi (nested array)
+            vehicles = parking_doc.get("list", [])
+            
+            # Loop qua từng xe
+            for vehicle in vehicles:
+                self.table_widget.insertRow(row)
+                
+                # Cột 0: License Plate
+                self.table_widget.setItem(row, 0, QTableWidgetItem(
+                    vehicle.get("license_plate", "")
+                ))
+                
+                # Cột 1: User ID
+                self.table_widget.setItem(row, 1, QTableWidgetItem(
+                    vehicle.get("user_id", "")
+                ))
+                
+                # Cột 2: Customer Type
+                self.table_widget.setItem(row, 2, QTableWidgetItem(
+                    vehicle.get("customer_type", "")
+                ))
+                
+                # Cột 3: Time In
+                time_in = vehicle.get("time_in")
+                
+                # Xử lý 2 format: ISO string hoặc datetime object
+                if isinstance(time_in, str):
+                    # Parse ISO string: "2025-09-06T10:03:07.846794"
+                    try:
+                        time_in = datetime.fromisoformat(time_in.replace('Z', '+00:00'))
+                    except:
+                        time_in = None
+                
+                time_in_str = time_in.strftime('%Y-%m-%d %H:%M:%S') if time_in else "N/A"
+                self.table_widget.setItem(row, 3, QTableWidgetItem(time_in_str))
+                
+                # Cột 4: Parking Time (REAL-TIME calculation)
+                if time_in:
+                    parking_hours = (datetime.now() - time_in).total_seconds() / 3600
+                    parking_time_str = self.format_parking_time(parking_hours)
+                else:
+                    parking_time_str = "N/A"
+                
+                self.table_widget.setItem(row, 4, QTableWidgetItem(parking_time_str))
+                
+                # Cột 5: Slot
+                self.table_widget.setItem(row, 5, QTableWidgetItem(
+                    vehicle.get("slot_name", "")
+                ))
+                
+                row += 1
+            
+            # Update cache sau khi refresh
+            self.update_license_cache()
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Lỗi khi tải dữ liệu:\n{str(e)}")
 
     def search_data(self):
         """Search the data based on the selected date and license."""
+        import re
+        
         # Clear existing data in the table
         self.table_widget.setRowCount(0)
         
         # Get the search query from search field
         search_query = self.search_field.text().strip()
-
-        # Thực hiện truy vấn
-        data = self.collection.find({
-            "license": search_query
-        }).sort("time_in", -1)
-        # Populate the table with filtered data
-        for row, record in enumerate(data):
-            self.table_widget.insertRow(row)
-            self.table_widget.setItem(row, 0, QTableWidgetItem(record.get("id_card", "")))
-            self.table_widget.setItem(row, 1, QTableWidgetItem(record.get("license", "")))
-            self.table_widget.setItem(row, 2, QTableWidgetItem(record.get("customer_type", "")))
-            time_in_str = record.get("time_in","").strftime('%Y-%m-%d %H:%M:%S')
-            self.table_widget.setItem(row, 3, QTableWidgetItem(time_in_str))
-            parking_time = (datetime.now() - record.get("time_in","")).total_seconds()/ 3600
-            self.table_widget.setItem(row, 4, QTableWidgetItem(str(f"{parking_time:.2f}")))
+        
+        if not search_query:
+            # If search is empty, show all data
+            self.refresh_table()
+            return
+        
+        try:
+            # Fetch ONLY bãi xe hiện tại
+            parking_doc = self.collection.find_one({"parking_id": self.parking_id})
+            
+            if not parking_doc:
+                print(f"Không tìm thấy bãi xe {self.parking_id}")
+                return
+            
+            # Create case-insensitive regex pattern
+            pattern = re.compile(search_query, re.IGNORECASE)
+            
+            # Loop through vehicles to find matches
+            row = 0
+            vehicles = parking_doc.get("list", [])
+            for vehicle in vehicles:
+                license_plate = vehicle.get("license_plate", "")
+                
+                # Filter by regex pattern
+                if pattern.search(license_plate):
+                    self.table_widget.insertRow(row)
+                    
+                    # Column 0: License Plate
+                    self.table_widget.setItem(row, 0, QTableWidgetItem(license_plate))
+                    
+                    # Column 1: User ID
+                    user_id = vehicle.get("user_id", "")
+                    self.table_widget.setItem(row, 1, QTableWidgetItem(user_id))
+                    
+                    # Column 2: Customer Type
+                    customer_type = vehicle.get("customer_type", "")
+                    self.table_widget.setItem(row, 2, QTableWidgetItem(customer_type))
+                    
+                    # Column 3: Time In
+                    time_in = vehicle.get("time_in", "")
+                    if isinstance(time_in, str):
+                        try:
+                            time_in = datetime.fromisoformat(time_in.replace('Z', '+00:00'))
+                        except:
+                            time_in = datetime.now()
+                    time_in_str = time_in.strftime('%Y-%m-%d %H:%M:%S') if time_in else ""
+                    self.table_widget.setItem(row, 3, QTableWidgetItem(time_in_str))
+                    
+                    # Column 4: Parking Time (real-time calculation)
+                    if time_in:
+                        parking_hours = (datetime.now() - time_in).total_seconds() / 3600
+                        parking_time_str = self.format_parking_time(parking_hours)
+                    else:
+                        parking_time_str = "N/A"
+                    self.table_widget.setItem(row, 4, QTableWidgetItem(parking_time_str))
+                    
+                    # Column 5: Slot
+                    slot_name = vehicle.get("slot_name", "")
+                    self.table_widget.setItem(row, 5, QTableWidgetItem(slot_name))
+                    
+                    row += 1
+        
+        except Exception as e:
+            QMessageBox.critical(self, "Search Error", f"Error searching data: {str(e)}")
 
 
     def handle_key_press(self, event):
         """Handle key press events, specifically F5 for refresh."""
         if event.key() == Qt.Key_F5:
             self.refresh_table()  # Refresh table when F5 is pressed
+
+    def format_parking_time(self, hours):
+        """Format parking time thành 'Xh Ym' dễ đọc hơn"""
+        h = int(hours)
+        m = int((hours - h) * 60)
+        if h > 0:
+            return f"{h}h {m}m"
+        return f"{m}m"

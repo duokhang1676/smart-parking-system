@@ -155,3 +155,31 @@ def get_client():
         client = get_client()
     """
     return db_manager.get_client()
+
+
+def get_parking_id():
+    """
+    Helper function để lấy PARKING_ID từ .env
+    
+    Usage:
+        from database.db_manager import get_parking_id
+        parking_id = get_parking_id()
+    
+    Returns:
+        str: ID của bãi xe (mặc định: "parking_001")
+    """
+    return os.getenv("PARKING_ID", "parking_001")
+
+
+def get_cloud_server_url():
+    """
+    Helper function để lấy CLOUD_SERVER_URL từ .env
+    
+    Usage:
+        from database.db_manager import get_cloud_server_url
+        url = get_cloud_server_url()
+    
+    Returns:
+        str: URL của cloud server (mặc định: "https://parking-cloud-server.onrender.com/api/")
+    """
+    return os.getenv("CLOUD_SERVER_URL", "https://parking-cloud-server.onrender.com/api/")
