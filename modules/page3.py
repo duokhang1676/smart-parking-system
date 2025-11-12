@@ -16,7 +16,6 @@ class CarsInParkingPage(QWidget):
 
         # Lấy PARKING_ID từ config
         self.parking_id = get_parking_id()
-        print(f"Page 3 đang quản lý bãi xe: {self.parking_id}")
 
         # Kết nối tới MongoDB
         try:
@@ -172,7 +171,7 @@ class CarsInParkingPage(QWidget):
         # Chỉ auto-search nếu có text (tránh query rỗng)
         if self.search_field.text().strip():
             # Đợi 500ms sau khi user ngừng gõ mới search
-            self.search_debounce_timer.start(500)
+            self.search_debounce_timer.start(300)
     
     def perform_search(self):
         """Thực hiện search thực sự sau khi debounce"""
@@ -189,18 +188,18 @@ class CarsInParkingPage(QWidget):
         """
         Refresh the data from MongoDB and update the table.
         
-        Data có cấu trúc NESTED!
+        NESTED data structure!
         Document structure:
         {
           "parking_id": "parking_001",
-          "list": [
-            {"license_plate": "30K-55055", "user_id": "00", ...},
-            {"license_plate": "30G-49344", "user_id": "01", ...}
-          ]
+            "list": [
+                {"license_plate": "30K-55055", "user_id": "00", ...},
+                {"license_plate": "30G-49344", "user_id": "01", ...}
+            ]
         }
         """
         if self.collection is None:
-            QMessageBox.warning(self, "Warning", "Không có kết nối database")
+            QMessageBox.warning(self, "Warning", "No database connection")
             return
         
         self.table_widget.setRowCount(0)
@@ -210,7 +209,7 @@ class CarsInParkingPage(QWidget):
             parking_doc = self.collection.find_one({"parking_id": self.parking_id})
             
             if not parking_doc:
-                print(f"Không tìm thấy bãi xe {self.parking_id} trong database")
+                print(f"Parking not found: {self.parking_id}")
                 return
             
             row = 0
@@ -271,7 +270,7 @@ class CarsInParkingPage(QWidget):
             self.update_license_cache()
             
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Lỗi khi tải dữ liệu:\n{str(e)}")
+            QMessageBox.critical(self, "Error", f"Cannot load data:\n{str(e)}")
 
     def search_data(self):
         """Search the data based on the selected date and license."""
@@ -293,7 +292,7 @@ class CarsInParkingPage(QWidget):
             parking_doc = self.collection.find_one({"parking_id": self.parking_id})
             
             if not parking_doc:
-                print(f"Không tìm thấy bãi xe {self.parking_id}")
+                print(f"Parking is not found: {self.parking_id}")
                 return
             
             # Create case-insensitive regex pattern

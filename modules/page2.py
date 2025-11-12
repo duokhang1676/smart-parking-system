@@ -152,7 +152,7 @@ class HistoryPage(QWidget):
             self.completer_model.setStringList(self.license_plates_cache)
             
         except Exception as e:
-            print(f"Lỗi khi update cache: {e}")
+            print(f"Error updating license cache: {e}")
     
     def on_search_text_changed(self):
         """Được gọi khi user gõ vào search field - dùng debounce"""
@@ -162,7 +162,7 @@ class HistoryPage(QWidget):
         # Chỉ auto-search nếu có text (tránh query rỗng)
         if self.search_field.text().strip():
             # Đợi 500ms sau khi user ngừng gõ mới search
-            self.search_debounce_timer.start(500)
+            self.search_debounce_timer.start(300)
     
     def perform_search(self):
         """Thực hiện search thực sự sau khi debounce"""

@@ -5,13 +5,13 @@ __pycache__/
 *.so
 .Python
 
-# Virtual Environment - QUAN TRỌNG!
+# Virtual Environments
 .venv/
 venv/
 ENV/
 env/
 
-# Environment variables - BẢO MẬT
+# Environment variables 
 .env
 .env.local
 .env.*.local
