@@ -6,12 +6,13 @@ from PyQt5.QtCore import Qt, QDate, QTimer, QStringListModel
 from datetime import datetime, timedelta
 
 from database.db_manager import db_manager, get_collection, get_parking_id
+from modules.theme_colors import AppColors
 
 class CarsInParkingPage(QWidget):
     def __init__(self):
         super().__init__()
 
-        self.setStyleSheet("background-color: #FFFFFF;")
+        self.setStyleSheet(f"background-color: {AppColors.BG_WHITE};")
         layout = QVBoxLayout(self)
 
         # Lấy PARKING_ID từ config
@@ -53,10 +54,22 @@ class CarsInParkingPage(QWidget):
         # Search and Date Selector
         search_date_layout = QHBoxLayout()
 
-        # Search bar
+        # Search bar - LUÔN TRẮNG CHỮ ĐEN
         self.search_field = QLineEdit()
         self.search_field.setPlaceholderText("Search by License...")
-        self.search_field.setStyleSheet("padding: 5px; font-size: 14px;")
+        self.search_field.setStyleSheet(f"""
+            QLineEdit {{
+                padding: 8px;
+                font-size: 14px;
+                background-color: {AppColors.SEARCH_BG};
+                color: {AppColors.SEARCH_TEXT};
+                border: 2px solid {AppColors.SEARCH_BORDER};
+                border-radius: 6px;
+            }}
+            QLineEdit:focus {{
+                border-color: {AppColors.SEARCH_FOCUS};
+            }}
+        """)
         search_date_layout.addWidget(self.search_field)
         
         # Setup QCompleter cho auto-suggest (SAU khi tạo search_field)
@@ -68,9 +81,23 @@ class CarsInParkingPage(QWidget):
         self.completer.setModel(self.completer_model)
         self.search_field.setCompleter(self.completer)  # ← Bây giờ OK!
 
-        # Button "Search All" để bỏ qua filter ngày
+        # Button "Search All" - Màu gradient tím khớp navigation
         self.search_all_button = QPushButton("🔍 All")
-        self.search_all_button.setStyleSheet("font-size: 14px; padding: 5px; max-width: 80px;")
+        self.search_all_button.setStyleSheet(f"""
+            QPushButton {{
+                font-size: 14px;
+                padding: 8px;
+                max-width: 100px;
+                background: {AppColors.get_gradient_style()};
+                color: {AppColors.TEXT_WHITE};
+                border: none;
+                border-radius: 6px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                background: {AppColors.get_hover_gradient_style()};
+            }}
+        """)
         self.search_all_button.setToolTip("Tìm kiếm tất cả xe đang đỗ")
         self.search_all_button.clicked.connect(self.search_all_data)
         search_date_layout.addWidget(self.search_all_button)
@@ -97,7 +124,9 @@ class CarsInParkingPage(QWidget):
         # Adjust table layout
         self.table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)  # Cột tự động giãn
         self.table_widget.horizontalHeader().setStretchLastSection(True)  # Cột cuối chiếm hết phần dư
-        self.table_widget.setAlternatingRowColors(True)
+        self.table_widget.setAlternatingRowColors(False)
+        
+        # Apply initial theme (will be overridden by apply_theme_style)
         self.table_widget.setRowCount(0)  # Ban đầu không có dữ liệu
 
         # Ensure the table expands to fill available space and scrollbars appear
@@ -111,9 +140,22 @@ class CarsInParkingPage(QWidget):
         # Add table to the main layout
         main_layout.addWidget(self.table_widget)
 
-        # Refresh button
+        # Refresh button - Màu gradient tím khớp navigation
         self.refresh_button = QPushButton("Refresh")
-        self.refresh_button.setStyleSheet("font-size: 14px; padding: 5px;")
+        self.refresh_button.setStyleSheet(f"""
+            QPushButton {{
+                font-size: 14px;
+                padding: 8px;
+                background: {AppColors.get_gradient_style()};
+                color: {AppColors.TEXT_WHITE};
+                border: none;
+                border-radius: 6px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                background: {AppColors.get_hover_gradient_style()};
+            }}
+        """)
         self.refresh_button.clicked.connect(self.refresh_table)  # Connect refresh button to function
         main_layout.addWidget(self.refresh_button)
 
@@ -351,6 +393,59 @@ class CarsInParkingPage(QWidget):
         """Handle key press events, specifically F5 for refresh."""
         if event.key() == Qt.Key_F5:
             self.refresh_table()  # Refresh table when F5 is pressed
+    
+    def apply_theme_style(self, is_dark):
+        """Apply theme-specific styling to table (called by MainWindow on theme toggle)"""
+        if is_dark:
+            # Dark mode
+            self.table_widget.setStyleSheet(f"""
+                QTableWidget {{
+                    background-color: {AppColors.BG_DARK};
+                    color: {AppColors.TEXT_WHITE};
+                    gridline-color: {AppColors.BORDER_GRID_DARK};
+                    border: 1px solid {AppColors.BORDER_DARK};
+                }}
+                QTableWidget::item {{
+                    padding: 8px;
+                    color: {AppColors.TEXT_WHITE};
+                }}
+                QTableWidget::item:selected {{
+                    background-color: {AppColors.ACCENT_DARK_PURPLE};
+                    color: {AppColors.TEXT_WHITE};
+                }}
+                QHeaderView::section {{
+                    background-color: {AppColors.BG_DARK_HEADER};
+                    color: {AppColors.TEXT_WHITE};
+                    padding: 10px;
+                    border: 1px solid {AppColors.BORDER_DARK};
+                    font-weight: bold;
+                }}
+            """)
+        else:
+            # Light mode
+            self.table_widget.setStyleSheet(f"""
+                QTableWidget {{
+                    background-color: {AppColors.BG_WHITE};
+                    color: {AppColors.TEXT_BLACK};
+                    gridline-color: {AppColors.BORDER_GRID_LIGHT};
+                    border: 1px solid {AppColors.BORDER_LIGHT};
+                }}
+                QTableWidget::item {{
+                    padding: 8px;
+                    color: {AppColors.TEXT_BLACK};
+                }}
+                QTableWidget::item:selected {{
+                    background-color: {AppColors.ACCENT_LIGHT_PURPLE};
+                    color: {AppColors.TEXT_BLACK};
+                }}
+                QHeaderView::section {{
+                    background-color: {AppColors.BG_LIGHT_GRAY};
+                    color: {AppColors.TEXT_BLACK};
+                    padding: 10px;
+                    border: 1px solid {AppColors.BORDER_LIGHT};
+                    font-weight: bold;
+                }}
+            """)
 
     def format_parking_time(self, hours):
         """Format parking time thành 'Xh Ym' dễ đọc hơn"""

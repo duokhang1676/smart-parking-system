@@ -10,6 +10,7 @@ from resources.coordinates.coordinates_generator_auto import CoordinatesGenerato
 from resources.coordinates.coordinates_generator_forFirst import CoordinatesGeneratorForFirst
 from modules.utils import *
 from database.db_manager import get_parking_id, get_cloud_server_url
+from modules.theme_colors import AppColors
 import re
 
 class CoordinatesSetup(QWidget):
@@ -45,6 +46,9 @@ class CoordinatesSetup(QWidget):
         self.camera_list.addItem("Camera 5")
         self.camera_list.addItem("Camera 6")
         
+        # Set fixed width cho camera list để text hiển thị đầy đủ
+        self.camera_list.setMinimumWidth(200)
+        self.camera_list.setMaximumWidth(250)
 
         # Set font for QListWidget items (increase font size)
         font = QFont()
@@ -65,20 +69,38 @@ class CoordinatesSetup(QWidget):
         # Add top layout to the main layout
         main_layout.addLayout(top_layout)
 
-        # Bottom: Control buttons (1, 2, 3, etc.)
+        # Bottom: Control buttons - Màu gradient tím khớp navigation
         self.bottom_buttons_layout = QHBoxLayout()
+        
+        # Gradient style cho các nút
+        button_style = f"""
+            QPushButton {{
+                background: {AppColors.get_gradient_style()};
+                color: {AppColors.TEXT_WHITE};
+                border: none;
+                border-radius: 6px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                background: {AppColors.get_hover_gradient_style()};
+            }}
+        """
+        
         btn_Reload = QPushButton("Tải lại danh sách camera")
         btn_Reload.setFixedHeight(40)
         font.setPointSize(10)
         btn_Reload.setFont(font)
+        btn_Reload.setStyleSheet(button_style)
 
         btn_Update = QPushButton("Cập nhật vị trí ô đỗ")
         btn_Update.setFixedHeight(40)
         btn_Update.setFont(font)
+        btn_Update.setStyleSheet(button_style)
 
         btn_AutoCoordinate = QPushButton("Tự động gán vị trí ô đỗ")
         btn_AutoCoordinate.setFixedHeight(40)
         btn_AutoCoordinate.setFont(font)
+        btn_AutoCoordinate.setStyleSheet(button_style)
 
         self.bottom_buttons_layout.addWidget(btn_Reload)
         self.bottom_buttons_layout.addWidget(btn_Update)
