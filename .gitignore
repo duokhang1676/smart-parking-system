@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Environment variables 
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+database/*.db
+
+# Logs
+*.log
+
+# Temporary
+*.tmp
+*.bak
+*.cache
+
+# Models 
+resources/models/*.pt
+resources/models/*.pth
+resources/models/*.onnx
+
+# Build files
+build/
+dist/
+*.egg-info/
+# Backups
+backups/
+*.bson
+backup_*.json
