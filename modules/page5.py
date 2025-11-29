@@ -27,7 +27,7 @@ class CoordinatesSetup(QWidget):
         self.image = None
         self.camera_id = None
         self.curentCam = None
-        self.setWindowTitle("Cài đặt tọa độ các ô đỗ")
+        self.setWindowTitle("Coordinates Setup")
         self.setGeometry(100, 100, 900, 600)
 
         # Main Layout
@@ -86,18 +86,18 @@ class CoordinatesSetup(QWidget):
             }}
         """
         
-        btn_Reload = QPushButton("Tải lại danh sách camera")
+        btn_Reload = QPushButton("Reload camera list")
         btn_Reload.setFixedHeight(40)
         font.setPointSize(10)
         btn_Reload.setFont(font)
         btn_Reload.setStyleSheet(button_style)
 
-        btn_Update = QPushButton("Cập nhật vị trí ô đỗ")
+        btn_Update = QPushButton("Update parking spot positions")
         btn_Update.setFixedHeight(40)
         btn_Update.setFont(font)
         btn_Update.setStyleSheet(button_style)
 
-        btn_AutoCoordinate = QPushButton("Tự động gán vị trí ô đỗ")
+        btn_AutoCoordinate = QPushButton("Auto-assign parking spot positions")
         btn_AutoCoordinate.setFixedHeight(40)
         btn_AutoCoordinate.setFont(font)
         btn_AutoCoordinate.setStyleSheet(button_style)
@@ -118,7 +118,7 @@ class CoordinatesSetup(QWidget):
 
     def on_btnAutoCoordinate_click(self,image):
         if image is None:
-            show_message(self,"Hãy chọn 1 camera để cập nhật vị trí!")
+            show_message(self,"Please select a camera to update positions!")
             return
         numbers = re.findall(r'\d+', self.curentCam)
         data_file = "resources/coordinates/data/"+self.camera_id+".yml"
@@ -131,7 +131,7 @@ class CoordinatesSetup(QWidget):
                 generator.generate()
                 points.flush()
                 os.fsync(points.fileno())
-                show_message(self,"Hãy nhập các vị trí ô đỗ đầu tiên của hàng!")
+                show_message(self,"Please enter the first parking spot positions of the row!")
                 # cập nhật lại camerafeed
                 self.update_video_feed(self.curentCam)
             except Exception as e:
@@ -147,7 +147,7 @@ class CoordinatesSetup(QWidget):
                 points.flush()
                 os.fsync(points.fileno())
 
-                show_message(self,"Cập nhật thành công")
+                show_message(self,"Update successful")
                 # Gửi tọa độ lên server
                 coordinates_data = read_yaml(data_file)
                 if self.send_coordinates(self.camera_id, coordinates_data):
@@ -178,7 +178,7 @@ class CoordinatesSetup(QWidget):
 
     def on_btnUpdate_click(self,image):
         if image is None:
-            show_message(self,"Hãy chọn 1 camera để cập nhật vị trí!")
+            show_message(self,"Please select a camera to update positions!")
             return
         numbers = re.findall(r'\d+', self.curentCam)
         data_file = "resources/coordinates/data/"+self.camera_id+".yml"
@@ -194,7 +194,7 @@ class CoordinatesSetup(QWidget):
                 points.flush()
                 os.fsync(points.fileno())
 
-                show_message(self,"Cập nhật thành công")
+                show_message(self,"Update successful")
                 # Gửi tọa độ lên server
                 coordinates_data = read_yaml(data_file)
                 if self.send_coordinates(self.camera_id, coordinates_data):
@@ -236,7 +236,7 @@ class CoordinatesSetup(QWidget):
             self.camera_id = os.path.splitext(files[cam_id])[0]
             frame = cv2.imread(path+files[cam_id])
             if frame is None:
-                show_message(self,"Không đọc được ảnh")
+                show_message(self,"Cannot read image")
                 return
             self.image = frame.copy()
             # Resize the frame to fit the QLabel
