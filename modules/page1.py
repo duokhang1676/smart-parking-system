@@ -31,7 +31,7 @@ class ParkingSlotPage(QWidget):
         # Timer for data update
         self.timer = QTimer()
         self.timer.timeout.connect(self.fetch_and_update_data)
-        self.timer.start(1000)
+        self.timer.start(10000)
 
     def init_ui(self):
         main_layout = QVBoxLayout()
