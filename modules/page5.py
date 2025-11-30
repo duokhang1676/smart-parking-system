@@ -27,7 +27,7 @@ class CoordinatesSetup(QWidget):
         self.image = None
         self.camera_id = None
         self.curentCam = None
-        self.setWindowTitle("Cài đặt tọa độ các ô đỗ")
+        self.setWindowTitle("Coordinates Setup")
         self.setGeometry(100, 100, 900, 600)
 
         # Main Layout
@@ -86,24 +86,30 @@ class CoordinatesSetup(QWidget):
             }}
         """
         
-        btn_Reload = QPushButton("Tải lại danh sách camera")
+        btn_Reload = QPushButton("Reload camera list")
         btn_Reload.setFixedHeight(40)
         font.setPointSize(10)
         btn_Reload.setFont(font)
         btn_Reload.setStyleSheet(button_style)
 
-        btn_Update = QPushButton("Cập nhật vị trí ô đỗ")
+        btn_Update = QPushButton("Update parking spot positions")
         btn_Update.setFixedHeight(40)
         btn_Update.setFont(font)
         btn_Update.setStyleSheet(button_style)
 
-        btn_AutoCoordinate = QPushButton("Tự động gán vị trí ô đỗ")
+        btn_UpdateREID = QPushButton("Update REID positions")
+        btn_UpdateREID.setFixedHeight(40)
+        btn_UpdateREID.setFont(font)
+        btn_UpdateREID.setStyleSheet(button_style)
+
+        btn_AutoCoordinate = QPushButton("Auto-assign parking spot positions")
         btn_AutoCoordinate.setFixedHeight(40)
         btn_AutoCoordinate.setFont(font)
         btn_AutoCoordinate.setStyleSheet(button_style)
 
         self.bottom_buttons_layout.addWidget(btn_Reload)
         self.bottom_buttons_layout.addWidget(btn_Update)
+        self.bottom_buttons_layout.addWidget(btn_UpdateREID)
         self.bottom_buttons_layout.addWidget(btn_AutoCoordinate)
 
         # Add bottom buttons layout to main layout
@@ -114,11 +120,12 @@ class CoordinatesSetup(QWidget):
         self.camera_list.itemClicked.connect(self.display_camera2)
         btn_Reload.clicked.connect(lambda: self.on_btnReload_click())
         btn_Update.clicked.connect(lambda: self.on_btnUpdate_click(self.image))
+        btn_UpdateREID.clicked.connect(lambda: self.on_btnUpdateREID_click(self.image))
         btn_AutoCoordinate.clicked.connect(lambda: self.on_btnAutoCoordinate_click(self.image))
 
     def on_btnAutoCoordinate_click(self,image):
         if image is None:
-            show_message(self,"Hãy chọn 1 camera để cập nhật vị trí!")
+            show_message(self,"Please select a camera to update positions!")
             return
         numbers = re.findall(r'\d+', self.curentCam)
         data_file = "resources/coordinates/data/"+self.camera_id+".yml"
@@ -131,7 +138,7 @@ class CoordinatesSetup(QWidget):
                 generator.generate()
                 points.flush()
                 os.fsync(points.fileno())
-                show_message(self,"Hãy nhập các vị trí ô đỗ đầu tiên của hàng!")
+                show_message(self,"Please enter the first parking spot positions of the row!")
                 # cập nhật lại camerafeed
                 self.update_video_feed(self.curentCam)
             except Exception as e:
@@ -147,7 +154,7 @@ class CoordinatesSetup(QWidget):
                 points.flush()
                 os.fsync(points.fileno())
 
-                show_message(self,"Cập nhật thành công")
+                show_message(self,"Update successful")
                 # Gửi tọa độ lên server
                 coordinates_data = read_yaml(data_file)
                 if self.send_coordinates(self.camera_id, coordinates_data):
@@ -178,26 +185,27 @@ class CoordinatesSetup(QWidget):
 
     def on_btnUpdate_click(self,image):
         if image is None:
-            show_message(self,"Hãy chọn 1 camera để cập nhật vị trí!")
+            show_message(self,"Please select a camera to update positions!")
             return
         numbers = re.findall(r'\d+', self.curentCam)
         data_file = "resources/coordinates/data/"+self.camera_id+".yml"
             # Mở tệp để ghi tọa độ vào
         coordinates_data = read_yaml(data_file)
+        print("Before generate:", coordinates_data)
         with open(data_file, "a+") as points:
             # Khởi tạo đối tượng CoordinatesGenerator với hình ảnh và màu sắc
             try:
                 generator = CoordinatesGenerator(image, points, (0, 0, 255),numbers[0], coordinates_data)
             # Gọi phương thức generate để tạo tọa độ
                 generator.generate()
-
+                print("After generate:", coordinates_data)
                 points.flush()
                 os.fsync(points.fileno())
 
-                show_message(self,"Cập nhật thành công")
+                show_message(self,"Update successful")
                 # Gửi tọa độ lên server
                 coordinates_data = read_yaml(data_file)
-                if self.send_coordinates(self.camera_id, coordinates_data):
+                if self.send_coordinates(self.camera_id, coordinates_data, "coordinates_list"):
                     print("Coordinates sent successfully")
                 # cập nhật lại camerafeed
                 self.update_video_feed(self.curentCam)
@@ -205,16 +213,55 @@ class CoordinatesSetup(QWidget):
             except Exception as e:
                 return 
             
-    def send_coordinates(self, camera_id, coordinates_data):
-        print("Sending coordinates to server...")
-        url = f'{self.ClOUD_SERVER_URL+"coordinates/"+self.PARKING_ID+"/"+camera_id}'
+    def on_btnUpdateREID_click(self,image):
+        if image is None:
+            show_message(self,"Please select a camera to update positions!")
+            return
+        numbers = re.findall(r'\d+', self.curentCam)
+        data_file = "resources/coordinates/data/coors_reid/"+self.camera_id+".yml"
+            # Mở tệp để ghi tọa độ vào
+        coordinates_data = read_yaml(data_file)
+        print("Before generate:", coordinates_data)
+        with open(data_file, "a+") as points:
+            # Khởi tạo đối tượng CoordinatesGenerator với hình ảnh và màu sắc
+            try:
+                generator = CoordinatesGenerator(image, points, (255, 0, 0),numbers[0], coordinates_data)
+            # Gọi phương thức generate để tạo tọa độ
+                generator.generate()
+                print("After generate:", coordinates_data)
+                points.flush()
+                os.fsync(points.fileno())
+
+                show_message(self,"Update successful")
+
+                # Gửi tọa độ lên server
+                coordinates_data = read_yaml(data_file)
+                print("aaa",coordinates_data)
+                if self.send_coordinates(self.camera_id, coordinates_data, "coordinates_reid_list"):
+                    print("Coordinates sent successfully")
+                # cập nhật lại camerafeed
+                self.update_video_feed(self.curentCam)
+
+            except Exception as e:
+                return
+            
+    def send_coordinates(self, camera_id, coordinates_data, field_name):
+        print(f"Sending {field_name} to server...")
+
+
+        url = f"{self.ClOUD_SERVER_URL}coordinates/{self.PARKING_ID}/{camera_id}"
         response = requests.get(url)
+
         if response.status_code == 200:
             data = response.json()
-            data[0]['coordinates_list'] = coordinates_data
-            url = f'{self.ClOUD_SERVER_URL+"coordinates/"}update/{self.PARKING_ID}/{camera_id}'
+            data[0][field_name] = coordinates_data
+
+            url = f"{self.ClOUD_SERVER_URL}coordinates/update/{self.PARKING_ID}/{camera_id}"
             response = requests.put(url, json=data[0])
             return response.status_code == 200
+
+        return False
+
 
     def display_camera(self, current, previous):
         """ Simulate showing camera feed. In real app, replace with code that connects to actual cameras. """
@@ -236,7 +283,7 @@ class CoordinatesSetup(QWidget):
             self.camera_id = os.path.splitext(files[cam_id])[0]
             frame = cv2.imread(path+files[cam_id])
             if frame is None:
-                show_message(self,"Không đọc được ảnh")
+                show_message(self,"Cannot read image")
                 return
             self.image = frame.copy()
             # Resize the frame to fit the QLabel
@@ -254,22 +301,31 @@ class CoordinatesSetup(QWidget):
                 self.camera_id = None
                 self.camera_display.setText("No camera feed available")
 
-    def drawCoordinates(self,frame):
-        data_file = "resources/coordinates/data/"+self.camera_id+".yml"
+    def drawCoordinates(self, frame):
+        data_file = "resources/coordinates/data/" + self.camera_id + ".yml"
         coordinates_data = read_yaml(data_file)
         
-        if coordinates_data is None or (isinstance(coordinates_data, (dict, list)) and len(coordinates_data) == 0):
-            return frame
-        
-        for item in coordinates_data:
-            coord = item['coordinate']
-            x, y = coord
-            cv2.circle(frame, (x, y), 5, (0, 255, 0), -1)  # Dấu chấm màu xanh lá
-            # Vẽ ID gần dấu chấm
-            cv2.putText(frame, str(item['id']), (x - 5, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)  # ID màu đỏ
+        if coordinates_data is not None and isinstance(coordinates_data, list):
+            for item in coordinates_data:
+                coord = item['coordinate']
+                x, y = coord
+                cv2.circle(frame, (x, y), 5, (0, 255, 0), -1)  
+                cv2.putText(frame, str(item['id']), (x - 5, y - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+
+        data_file_reid = "resources/coordinates/data/coors_reid/" + self.camera_id + ".yml"
+        coordinates_reid_data = read_yaml(data_file_reid)
+
+        if coordinates_reid_data is not None and isinstance(coordinates_reid_data, list):
+            for item in coordinates_reid_data:
+                coord = item['coordinate']
+                x, y = coord
+                cv2.circle(frame, (x, y), 5, (0, 0, 255), -1)  
+                cv2.putText(frame, str(item['id']), (x - 5, y - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1) 
+
         return frame
-        
-        
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

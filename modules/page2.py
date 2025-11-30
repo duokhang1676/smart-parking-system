@@ -97,7 +97,7 @@ class HistoryPage(QWidget):
         self.search_field.setCompleter(self.completer)
         
         # Button "Search All" - Màu gradient tím khớp navigation
-        self.search_all_button = QPushButton("🔍 Tìm theo tất cả ngày")
+        self.search_all_button = QPushButton("🔍 All")
         self.search_all_button.setStyleSheet(f"""
             QPushButton {{
                 font-size: 14px;

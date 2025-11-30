@@ -1,40 +1,8 @@
 - id: A0
-  coordinate: [328, 603]
+  coordinate: [36, 346]
 - id: A1
-  coordinate: [364, 495]
+  coordinate: [116, 428]
 - id: A2
-  coordinate: [395, 380]
+  coordinate: [182, 485]
 - id: A3
-  coordinate: [420, 275]
-- id: A4
-  coordinate: [438, 188]
-- id: B0
-  coordinate: [184, 506]
-- id: B1
-  coordinate: [222, 395]
-- id: B2
-  coordinate: [253, 297]
-- id: B3
-  coordinate: [286, 201]
-- id: B4
-  coordinate: [310, 124]
-- id: C0
-  coordinate: [108, 438]
-- id: C1
-  coordinate: [147, 337]
-- id: C2
-  coordinate: [178, 245]
-- id: C3
-  coordinate: [210, 163]
-- id: C4
-  coordinate: [241, 84]
-- id: D0
-  coordinate: [23, 353]
-- id: D1
-  coordinate: [57, 262]
-- id: D2
-  coordinate: [91, 191]
-- id: D3
-  coordinate: [121, 115]
-- id: D4
-  coordinate: [151, 55]
+  coordinate: [293, 560]
