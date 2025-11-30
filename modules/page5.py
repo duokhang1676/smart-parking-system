@@ -157,7 +157,7 @@ class CoordinatesSetup(QWidget):
                 show_message(self,"Update successful")
                 # Gửi tọa độ lên server
                 coordinates_data = read_yaml(data_file)
-                if self.send_coordinates(self.camera_id, coordinates_data):
+                if self.send_coordinates(self.camera_id, coordinates_data, "coordinates_list"):
                     print("Coordinates sent successfully")
                 # cập nhật lại camerafeed
                 self.update_video_feed(self.curentCam)

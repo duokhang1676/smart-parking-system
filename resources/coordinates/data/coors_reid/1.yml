@@ -1,8 +1,6 @@
 - id: A0
-  coordinate: [111, 204]
+  coordinate: [163, 268]
 - id: A1
-  coordinate: [161, 240]
+  coordinate: [110, 314]
 - id: A2
-  coordinate: [225, 273]
-- id: A3
-  coordinate: [271, 304]
+  coordinate: [79, 406]
