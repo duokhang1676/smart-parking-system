@@ -27,11 +27,15 @@ class DatabaseManager:
     
     def __init__(self):
         """Khởi tạo kết nối MongoDB"""
-        if self._client is None:
-            self.connect()
+        # Không tự động connect nữa - chỉ connect khi cần
+        pass
     
     def connect(self):
-        """Kết nối tới MongoDB"""
+        """Kết nối tới MongoDB (chỉ gọi khi thực sự cần)"""
+        # Nếu đã connect rồi thì bỏ qua
+        if self._client is not None:
+            return
+            
         try:
             # Lấy connection string từ biến môi trường
             # Mặc định: localhost nếu không có .env
@@ -53,20 +57,20 @@ class DatabaseManager:
             # Kết nối database
             self._db = self._client[DATABASE_NAME]
             
-            print(f" Kết nối MongoDB thành công!")
-            print(f" URI: {MONGODB_URI[:50]}...")
-            print(f" Database: {DATABASE_NAME}")
+            print(f"✅ Kết nối MongoDB thành công!")
+            print(f"📍 URI: {MONGODB_URI[:50]}...")
+            print(f"🗄️  Database: {DATABASE_NAME}")
             
         except (ConnectionFailure, ServerSelectionTimeoutError) as e:
-            print(f"Lỗi kết nối MongoDB: {e}")
+            print(f"⚠️  Không thể kết nối MongoDB: {e}")
+            print(f"💡 Ứng dụng sẽ chạy với API mode (không cần MongoDB local)")
             self._client = None
             self._db = None
-            raise
+            # Không raise exception nữa - để app vẫn chạy được
         except Exception as e:
-            print(f"Lỗi không xác định: {e}")
+            print(f"⚠️  Lỗi không xác định: {e}")
             self._client = None
             self._db = None
-            raise
     
     def get_client(self):
         """Trả về MongoClient instance"""

@@ -1,10 +1,6 @@
-- id: A0
-  coordinate: [306, 452]
-- id: A1
-  coordinate: [260, 358]
-- id: A2
-  coordinate: [201, 248]
-- id: A3
-  coordinate: [135, 154]
-- id: A4
-  coordinate: [91, 59]
+- id: B0
+  coordinate: [190, 373]
+- id: B1
+  coordinate: [175, 236]
+- id: B2
+  coordinate: [144, 112]

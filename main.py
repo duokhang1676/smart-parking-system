@@ -19,6 +19,8 @@ from modules.page2 import HistoryPage
 from modules.page3 import CarsInParkingPage
 from modules.page4 import CustomersPage
 from modules.page5 import CoordinatesSetup
+from modules.page6 import ParkingInfoPage
+from modules.page7 import EnvironmentPage
 from modules.theme_colors import AppColors
 
 
@@ -167,12 +169,14 @@ class MainWindow(QMainWindow):
         self.btn_page3 = create_sidebar_button("Active Cars", "fa5s.parking", "Currently parked")
         self.btn_page4 = create_sidebar_button("Customers", "fa5s.users", "Registered users")
         self.btn_page5 = create_sidebar_button("Settings", "fa5s.cog", "Configuration")
+        self.btn_page7 = create_sidebar_button("Environment", "fa5s.leaf", "Air quality")
 
         sidebar_layout.addWidget(self.btn_page1)
         sidebar_layout.addWidget(self.btn_page2)
         sidebar_layout.addWidget(self.btn_page3)
         sidebar_layout.addWidget(self.btn_page4)
         sidebar_layout.addWidget(self.btn_page5)
+        sidebar_layout.addWidget(self.btn_page7)
         sidebar_layout.addStretch()
         
         # Bottom Section - Theme Toggle
@@ -254,17 +258,26 @@ class MainWindow(QMainWindow):
         top_bar_layout.addLayout(title_layout)
         top_bar_layout.addStretch()
         
-        # User Badge
-        user_label = QLabel("👤 Admin")
-        user_label.setStyleSheet(f"""
-            color: {AppColors.TEXT_SECONDARY};
-            font-size: 14px;
-            font-weight: 500;
-            background: {AppColors.BG_HOVER_LIGHT};
-            padding: 8px 15px;
-            border-radius: 20px;
+        # Admin Button (clickable)
+        self.admin_btn = QPushButton("👤 Admin")
+        self.admin_btn.setStyleSheet(f"""
+            QPushButton {{
+                color: {AppColors.TEXT_SECONDARY};
+                font-size: 14px;
+                font-weight: 500;
+                background: {AppColors.BG_HOVER_LIGHT};
+                padding: 8px 15px;
+                border-radius: 20px;
+                border: none;
+            }}
+            QPushButton:hover {{
+                background: #D1C4E9;
+                color: #5E35B1;
+            }}
         """)
-        top_bar_layout.addWidget(user_label)
+        self.admin_btn.setCursor(Qt.PointingHandCursor)
+        self.admin_btn.clicked.connect(lambda: self.navigate_to(self.page6, "Parking Information", "Admin / Parking Info"))
+        top_bar_layout.addWidget(self.admin_btn)
         
         main_layout.addWidget(top_bar)
         
@@ -291,12 +304,16 @@ class MainWindow(QMainWindow):
         self.page3 = CarsInParkingPage()
         self.page4 = CustomersPage()
         self.page5 = CoordinatesSetup()
+        self.page6 = ParkingInfoPage()
+        self.page7 = EnvironmentPage()
 
         self.content_area.addWidget(self.page1)
         self.content_area.addWidget(self.page2)
         self.content_area.addWidget(self.page3)
         self.content_area.addWidget(self.page4)
         self.content_area.addWidget(self.page5)
+        self.content_area.addWidget(self.page6)
+        self.content_area.addWidget(self.page7)
 
         # Connect Navigation Buttons
         self.btn_page1.mousePressEvent = lambda e: self.navigate_to(self.page1, "Dashboard", "Home / Dashboard")
@@ -304,6 +321,7 @@ class MainWindow(QMainWindow):
         self.btn_page3.mousePressEvent = lambda e: self.navigate_to(self.page3, "Active Cars", "Home / Active Cars")
         self.btn_page4.mousePressEvent = lambda e: self.navigate_to(self.page4, "Customers", "Home / Customers")
         self.btn_page5.mousePressEvent = lambda e: self.navigate_to(self.page5, "Settings", "Home / Settings")
+        self.btn_page7.mousePressEvent = lambda e: self.navigate_to(self.page7, "Environment", "Home / Environment")
 
         self.setCentralWidget(root_widget)
         
@@ -321,8 +339,8 @@ class MainWindow(QMainWindow):
     
     def apply_initial_styles(self, is_dark):
         """Apply theme styles to all pages on startup"""
-        # Apply to Page 2, 3, 4 tables
-        for page in [self.page2, self.page3, self.page4]:
+        # Apply to Page 2, 3, 4, 6, 7 tables
+        for page in [self.page2, self.page3, self.page4, self.page6, self.page7]:
             if hasattr(page, 'apply_theme_style'):
                 page.apply_theme_style(is_dark)
         
@@ -378,8 +396,8 @@ class MainWindow(QMainWindow):
         settings = QSettings('SmartParking', 'ThemeConfig')
         is_dark = 'dark' in settings.value('theme', 'dark_teal.xml')
         
-        # Refresh Page 2, 3, 4 table styles
-        for page in [self.page2, self.page3, self.page4]:
+        # Refresh Page 2, 3, 4, 6, 7 table styles
+        for page in [self.page2, self.page3, self.page4, self.page6, self.page7]:
             if hasattr(page, 'apply_theme_style'):
                 page.apply_theme_style(is_dark)
         

@@ -4,7 +4,9 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, QDate, QTimer, QStringListModel
 from datetime import datetime, timedelta
-from database.db_manager import get_collection, db_manager, get_parking_id
+import requests
+
+from database.db_manager import get_parking_id, get_cloud_server_url
 from modules.theme_colors import AppColors
 
 class CustomersPage(QWidget):
@@ -14,27 +16,9 @@ class CustomersPage(QWidget):
         self.setStyleSheet(f"background-color: {AppColors.BG_WHITE};")
         layout = QVBoxLayout(self)
 
-        # Kết nối tới MongoDB
-        try:
-            self.collection = get_collection("registers")  
-            
-            # Kiểm tra kết nối
-            if not db_manager.is_connected():
-                raise ConnectionError("Không thể kết nối MongoDB")
-                
-        except Exception as e:
-            QMessageBox.critical(
-                self,
-                "Database Error",
-                f"Không thể kết nối MongoDB:\n{str(e)}\n\n"
-                "Kiểm tra:\n"
-                "1. MongoDB server đang chạy\n"
-                "2. File .env có connection string đúng\n"
-                "3. Network connection (nếu dùng Atlas)"
-            )
-            self.collection = None
-
+        # Lấy thông tin từ config
         self.parking_id = get_parking_id()
+        self.cloud_server_url = get_cloud_server_url()
 
         # Cache cho license plates (tối ưu hiệu suất search)
         self.license_plates_cache = []
@@ -152,23 +136,25 @@ class CustomersPage(QWidget):
         self.refresh_table()
 
     def update_license_cache(self):
-        """Update cache danh sách biển số để dùng cho auto-suggest"""
+        """Update cache danh sách biển số để dùng cho auto-suggest từ API"""
         try:
-            # Lấy tất cả biển số đã đăng ký của bãi xe này
-            registers = self.collection.find(
-                {"parking_id": self.parking_id},
-                {"license_plate": 1, "_id": 0}
-            )
+            # Gọi API để lấy danh sách registers
+            api_url = f"{self.cloud_server_url}registers/get_register_list"
+            response = requests.post(api_url, json={"parking_id": self.parking_id}, timeout=5)
             
-            # Extract unique license plates
-            self.license_plates_cache = sorted(set(
-                reg.get("license_plate", "") 
-                for reg in registers 
-                if reg.get("license_plate")
-            ))
-            
-            # Update completer model
-            self.completer_model.setStringList(self.license_plates_cache)
+            if response.status_code == 200:
+                result = response.json()
+                registers = result.get("data", [])
+                
+                # Extract unique license plates
+                self.license_plates_cache = sorted(set(
+                    reg.get("license_plate", "") 
+                    for reg in registers 
+                    if reg.get("license_plate")
+                ))
+                
+                # Update completer model
+                self.completer_model.setStringList(self.license_plates_cache)
             
         except Exception as e:
             print(f"Error updating license cache: {e}")
@@ -187,51 +173,74 @@ class CustomersPage(QWidget):
         self.search_timer.start(300)  # Đặt timer mới 300ms
 
     def refresh_table(self):
-        """Refresh the data from MongoDB and update the table."""
+        """Refresh the data from API and update the table."""
         # Clear existing data in the table
         self.table_widget.setRowCount(0)
         
         # Reset search placeholder
         self.search_field.setPlaceholderText("Search by License...")
 
-        # Retrieve data from MongoDB collection - Fixed: Đúng cấu trúc database
-        data = self.collection.find(
-            {"parking_id": self.parking_id}  # Filter by parking_id
-        ).sort("register_time", -1)  # Sort by register_time descending
+        try:
+            # Gọi API để lấy danh sách registers
+            api_url = f"{self.cloud_server_url}registers/get_register_list"
+            response = requests.post(api_url, json={"parking_id": self.parking_id}, timeout=10)
+            
+            if response.status_code != 200:
+                QMessageBox.warning(self, "Warning", "Không thể lấy dữ liệu từ server")
+                return
+            
+            result = response.json()
+            registers = result.get("data", [])
 
-        # Populate the table with data from MongoDB
-        for row, record in enumerate(data):
-            self.table_widget.insertRow(row)
-            self.table_widget.setItem(row, 0, QTableWidgetItem(record.get("user_id", "")))
-            self.table_widget.setItem(row, 1, QTableWidgetItem(record.get("license_plate", "")))
-            # Parse and format dates
-            expired_str = CustomersPage.format_date(record.get("expired"))
-            register_time_str = CustomersPage.format_date(record.get("register_time"))
+            # Populate the table with data from API
+            for row, record in enumerate(registers):
+                self.table_widget.insertRow(row)
+                self.table_widget.setItem(row, 0, QTableWidgetItem(record.get("user_id", "")))
+                self.table_widget.setItem(row, 1, QTableWidgetItem(record.get("license_plate", "")))
+                
+                # Parse and format dates
+                expired_str = CustomersPage.format_date(record.get("expired"))
+                register_time_str = CustomersPage.format_date(record.get("register_time"))
 
-            # Add formatted dates to the table
-            self.table_widget.setItem(row, 2, QTableWidgetItem(register_time_str))
-            self.table_widget.setItem(row, 3, QTableWidgetItem(expired_str))
+                # Add formatted dates to the table
+                self.table_widget.setItem(row, 2, QTableWidgetItem(register_time_str))
+                self.table_widget.setItem(row, 3, QTableWidgetItem(expired_str))
+        
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Lỗi khi tải dữ liệu:\n{str(e)}")
 
     @staticmethod
     def format_date(date_object):
         """
         Convert ISODate object to dd-MM-yyyy HH:MM:SS format.
         Handles missing or invalid dates gracefully.
+        Supports: datetime object, ISO string, MongoDB $date format
         """
         try:
+            # Case 1: datetime object
             if isinstance(date_object, datetime):
                 return date_object.strftime("%d-%m-%Y %H:%M:%S")
+            
+            # Case 2: dict with $date key (MongoDB json_util format)
+            elif isinstance(date_object, dict) and "$date" in date_object:
+                date_str = date_object["$date"]
+                date_parsed = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                return date_parsed.strftime("%d-%m-%Y %H:%M:%S")
+            
+            # Case 3: ISO string format
             elif isinstance(date_object, str):
-                # Handle ISO string format
                 date_parsed = datetime.fromisoformat(date_object.replace("Z", "+00:00"))
                 return date_parsed.strftime("%d-%m-%Y %H:%M:%S")
-        except (ValueError, TypeError, AttributeError):
+                
+        except (ValueError, TypeError, AttributeError) as e:
+            print(f"Error parsing date: {date_object}, error: {e}")
             pass
+        
         return "Invalid Date"
 
 
     def search_data(self):
-        """Search the data based on license plate (supports partial matching)."""
+        """Search the data based on license plate (supports partial matching) via API."""
         # Clear existing data in the table
         self.table_widget.setRowCount(0)
         
@@ -243,36 +252,45 @@ class CustomersPage(QWidget):
             self.refresh_table()
             return
 
-        # Thực hiện truy vấn với regex để tìm kiếm linh hoạt (case-insensitive partial match)
-        data = self.collection.find({
-            "parking_id": self.parking_id,  # Filter by parking_id
-            "license_plate": {"$regex": search_query, "$options": "i"}  # Partial match, case-insensitive
-        }).sort("register_time", -1)
-        
-        # Đếm số kết quả
-        result_count = self.collection.count_documents({
-            "parking_id": self.parking_id,
-            "license_plate": {"$regex": search_query, "$options": "i"}
-        })
-        
-        # Populate the table with filtered data
-        for row, record in enumerate(data):
-            self.table_widget.insertRow(row)
-            self.table_widget.setItem(row, 0, QTableWidgetItem(record.get("user_id", "")))
-            self.table_widget.setItem(row, 1, QTableWidgetItem(record.get("license_plate", "")))
-            # Parse and format dates
-            expired_str = CustomersPage.format_date(record.get("expired"))
-            register_time_str = CustomersPage.format_date(record.get("register_time"))
+        try:
+            # Gọi API để lấy danh sách registers
+            api_url = f"{self.cloud_server_url}registers/get_register_list"
+            response = requests.post(api_url, json={"parking_id": self.parking_id}, timeout=10)
+            
+            if response.status_code != 200:
+                self.search_field.setPlaceholderText(f"No results for '{search_query}'")
+                return
+            
+            result = response.json()
+            registers = result.get("data", [])
+            
+            # Filter theo search query (case-insensitive)
+            filtered_data = [
+                reg for reg in registers 
+                if search_query.lower() in reg.get("license_plate", "").lower()
+            ]
+            
+            # Populate the table with filtered data
+            for row, record in enumerate(filtered_data):
+                self.table_widget.insertRow(row)
+                self.table_widget.setItem(row, 0, QTableWidgetItem(record.get("user_id", "")))
+                self.table_widget.setItem(row, 1, QTableWidgetItem(record.get("license_plate", "")))
+                # Parse and format dates
+                expired_str = CustomersPage.format_date(record.get("expired"))
+                register_time_str = CustomersPage.format_date(record.get("register_time"))
 
-            # Add formatted dates to the table
-            self.table_widget.setItem(row, 2, QTableWidgetItem(register_time_str))
-            self.table_widget.setItem(row, 3, QTableWidgetItem(expired_str))
+                # Add formatted dates to the table
+                self.table_widget.setItem(row, 2, QTableWidgetItem(register_time_str))
+                self.table_widget.setItem(row, 3, QTableWidgetItem(expired_str))
+            
+            # Update placeholder với số kết quả
+            if len(filtered_data) == 0:
+                self.search_field.setPlaceholderText(f"No results for '{search_query}'")
+            else:
+                self.search_field.setPlaceholderText(f"Found {len(filtered_data)} result(s)")
         
-        # Update placeholder với số kết quả
-        if result_count == 0:
-            self.search_field.setPlaceholderText(f"No results for '{search_query}'")
-        else:
-            self.search_field.setPlaceholderText(f"Found {result_count} result(s)")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Lỗi khi tìm kiếm:\n{str(e)}")
 
     def handle_key_press(self, event):
         """Handle key press events, specifically F5 for refresh."""

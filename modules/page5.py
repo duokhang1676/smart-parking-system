@@ -174,7 +174,7 @@ class CoordinatesSetup(QWidget):
             print("Tải lại danh sách camera thành công")
             for i in response.json():
                 img_url = i['image_url']
-                response = requests.get(img_url)
+                response = requests.get(img_url, timeout=10, stream=True)
                 if response.status_code == 200:
                     with open("resources/coordinates/data/frame/"+str(i['camera_id'])+".jpg", 'wb') as file:
                         file.write(response.content)

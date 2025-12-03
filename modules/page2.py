@@ -4,9 +4,10 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QDateEdit,
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, QDate, QTimer, QStringListModel
 from datetime import datetime, timedelta
+import requests
 
-# Import DatabaseManager
-from database.db_manager import get_collection, db_manager
+# Import config helpers
+from database.db_manager import get_parking_id, get_cloud_server_url
 from modules.theme_colors import AppColors
 
 class HistoryPage(QWidget):
@@ -16,25 +17,9 @@ class HistoryPage(QWidget):
         self.setStyleSheet(f"background-color: {AppColors.BG_WHITE};")
         layout = QVBoxLayout(self)
 
-        # Kết nối tới MongoDB qua DatabaseManager
-        try:
-            self.collection = get_collection("histories") 
-            
-            # Kiểm tra kết nối
-            if not db_manager.is_connected():
-                raise ConnectionError("Không thể kết nối MongoDB")
-                
-        except Exception as e:
-            QMessageBox.critical(
-                self,
-                "Database Error",
-                f"Không thể kết nối MongoDB:\n{str(e)}\n\n"
-                "Kiểm tra:\n"
-                "1. MongoDB server đang chạy\n"
-                "2. File .env có connection string đúng\n"
-                "3. Network connection (nếu dùng Atlas)"
-            )
-            self.collection = None
+        # Lấy thông tin từ config
+        self.parking_id = get_parking_id()
+        self.cloud_server_url = get_cloud_server_url()
 
         # Cache cho license plates (tối ưu hiệu suất search)
         self.license_plates_cache = []
@@ -191,15 +176,34 @@ class HistoryPage(QWidget):
         self.refresh_table()
 
     def update_license_cache(self):
-        """Update cache danh sách biển số xe từ MongoDB"""
-        if self.collection is None:
-            return
-        
+        """Update cache danh sách biển số xe từ API (lấy 30 ngày gần nhất)"""
         try:
-            # Lấy tất cả license plates unique (distinct)
-            self.license_plates_cache = self.collection.distinct("license_plate")
+            # Lấy dữ liệu 30 ngày gần nhất để build cache
+            license_plates_set = set()
+            current_date = datetime.now()
             
-            # Update model cho QCompleter
+            for i in range(30):  # Lấy 30 ngày gần nhất
+                date = current_date - timedelta(days=i)
+                date_str = date.strftime("%Y-%m-%d")
+                
+                api_url = f"{self.cloud_server_url}histories/by_parking_date"
+                params = {
+                    "parking_id": self.parking_id,
+                    "date": date_str
+                }
+                
+                try:
+                    response = requests.get(api_url, params=params, timeout=3)
+                    if response.status_code == 200:
+                        data = response.json().get("data", [])
+                        for item in data:
+                            plate = item.get("license_plate", "")
+                            if plate:
+                                license_plates_set.add(plate)
+                except:
+                    continue
+            
+            self.license_plates_cache = sorted(list(license_plates_set))
             self.completer_model.setStringList(self.license_plates_cache)
             
         except Exception as e:
@@ -220,50 +224,71 @@ class HistoryPage(QWidget):
         self.search_data()
     
     def search_all_data(self):
-        """Tìm kiếm tất cả các ngày (không filter ngày)"""
-        if self.collection is None:
-            QMessageBox.warning(self, "Warning", "Không có kết nối database")
-            return
-        
-        # Clear existing data in the table
+        """Tìm kiếm tất cả các ngày (lấy 30 ngày gần nhất) qua API"""
         self.table_widget.setRowCount(0)
-        
-        # Get the search query from search field
         search_query = self.search_field.text().strip()
         
         try:
-            # Tạo query filter (chỉ license plate, không filter ngày)
-            query_filter = {}
+            # Lấy dữ liệu từ nhiều ngày (30 ngày gần nhất)
+            all_data = []
+            current_date = datetime.now()
             
+            for i in range(30):  # Lấy 30 ngày
+                date = current_date - timedelta(days=i)
+                date_str = date.strftime("%Y-%m-%d")
+                
+                api_url = f"{self.cloud_server_url}histories/by_parking_date"
+                params = {
+                    "parking_id": self.parking_id,
+                    "date": date_str
+                }
+                
+                response = requests.get(api_url, params=params, timeout=3)
+                if response.status_code == 200:
+                    data = response.json().get("data", [])
+                    all_data.extend(data)
+            
+            # Filter theo search query nếu có
             if search_query:
-                query_filter["license_plate"] = {"$regex": search_query, "$options": "i"}
+                all_data = [item for item in all_data if search_query.lower() in item.get("license_plate", "").lower()]
             
-            # Thực hiện truy vấn
-            data = list(self.collection.find(query_filter).sort("time_out", -1))
+            data = all_data
             
             # Populate the table with filtered data
             for row, record in enumerate(data):
                 self.table_widget.insertRow(row)
                 
-                # License Plate
                 self.table_widget.setItem(row, 0, QTableWidgetItem(record.get("license_plate", "")))
-                
-                # User ID
-                self.table_widget.setItem(row, 1, QTableWidgetItem(record.get("user_id", "")))
+                self.table_widget.setItem(row, 1, QTableWidgetItem("N/A"))
                 
                 # Time In
-                time_in = record.get("time_in", "")
-                time_in_str = time_in.strftime('%Y-%m-%d %H:%M:%S') if time_in else ""
+                time_in_str = record.get("time_in", "")
+                if time_in_str:
+                    try:
+                        time_in_dt = datetime.fromisoformat(time_in_str.replace("Z", "+00:00"))
+                        time_in_str = time_in_dt.strftime('%Y-%m-%d %H:%M:%S')
+                    except:
+                        pass
                 self.table_widget.setItem(row, 2, QTableWidgetItem(time_in_str))
                 
                 # Time Out
-                time_out = record.get("time_out", "")
-                time_out_str = time_out.strftime('%Y-%m-%d %H:%M:%S') if time_out else ""
+                time_out_str = record.get("time_out", "")
+                if time_out_str:
+                    try:
+                        time_out_dt = datetime.fromisoformat(time_out_str.replace("Z", "+00:00"))
+                        time_out_str = time_out_dt.strftime('%Y-%m-%d %H:%M:%S')
+                    except:
+                        pass
                 self.table_widget.setItem(row, 3, QTableWidgetItem(time_out_str))
                 
-                # Parking Time (hours)
+                # Parking Time
                 parking_time = record.get("parking_time", 0)
                 formatted_time = format_parking_time(parking_time)
+                self.table_widget.setItem(row, 4, QTableWidgetItem(formatted_time))
+                
+                # Total Price
+                total_price = record.get("total_price", 0)
+                self.table_widget.setItem(row, 5, QTableWidgetItem(f"{total_price:,.0f} VNĐ"))
                 self.table_widget.setItem(row, 4, QTableWidgetItem(formatted_time))
                 
                 # Total Price
@@ -275,37 +300,54 @@ class HistoryPage(QWidget):
 
 
     def refresh_table(self):
-        """Refresh the data from MongoDB and update the table."""
-        # Kiểm tra kết nối
-        if self.collection is None:
-            QMessageBox.warning(self, "Warning", "Không có kết nối database")
-            return
-        
-        # Clear existing data in the table
+        """Refresh the data from API and update the table (ngày hiện tại)."""
         self.table_widget.setRowCount(0)
 
         try:
-            # Retrieve data from MongoDB collection
-            data = self.collection.find().sort("time_out", -1)
+            # Lấy dữ liệu của ngày hiện tại
+            current_date = datetime.now().strftime("%Y-%m-%d")
+            api_url = f"{self.cloud_server_url}histories/by_parking_date"
+            params = {
+                "parking_id": self.parking_id,
+                "date": current_date
+            }
+            
+            response = requests.get(api_url, params=params, timeout=10)
+            
+            if response.status_code != 200:
+                QMessageBox.warning(self, "Warning", "Không thể lấy dữ liệu từ server")
+                return
+            
+            data = response.json().get("data", [])
 
-            # Populate the table with data from MongoDB
+            # Populate the table with data from API
             for row, record in enumerate(data):
                 self.table_widget.insertRow(row)
                 
                 # License Plate
                 self.table_widget.setItem(row, 0, QTableWidgetItem(record.get("license_plate", "")))
                 
-                # User ID
-                self.table_widget.setItem(row, 1, QTableWidgetItem(record.get("user_id", "")))
+                # User ID (không có trong API response)
+                self.table_widget.setItem(row, 1, QTableWidgetItem("N/A"))
                 
-                # Time In
-                time_in = record.get("time_in", "")
-                time_in_str = time_in.strftime('%Y-%m-%d %H:%M:%S') if time_in else ""
+                # Time In (ISO string from API)
+                time_in_str = record.get("time_in", "")
+                if time_in_str:
+                    try:
+                        time_in_dt = datetime.fromisoformat(time_in_str.replace("Z", "+00:00"))
+                        time_in_str = time_in_dt.strftime('%Y-%m-%d %H:%M:%S')
+                    except:
+                        pass
                 self.table_widget.setItem(row, 2, QTableWidgetItem(time_in_str))
                 
-                # Time Out
-                time_out = record.get("time_out", "")
-                time_out_str = time_out.strftime('%Y-%m-%d %H:%M:%S') if time_out else ""
+                # Time Out (ISO string from API)
+                time_out_str = record.get("time_out", "")
+                if time_out_str:
+                    try:
+                        time_out_dt = datetime.fromisoformat(time_out_str.replace("Z", "+00:00"))
+                        time_out_str = time_out_dt.strftime('%Y-%m-%d %H:%M:%S')
+                    except:
+                        pass
                 self.table_widget.setItem(row, 3, QTableWidgetItem(time_out_str))
                 
                 # Parking Time (hours)
@@ -324,12 +366,7 @@ class HistoryPage(QWidget):
             QMessageBox.critical(self, "Error", f"Lỗi khi tải dữ liệu:\n{str(e)}")
 
     def search_data(self):
-        """Search the data based on the selected date and license (hỗ trợ tìm gần đúng)."""
-        # Kiểm tra kết nối
-        if self.collection is None:
-            QMessageBox.warning(self, "Warning", "Không có kết nối database")
-            return
-        
+        """Search the data based on the selected date and license via API."""
         # Clear existing data in the table
         self.table_widget.setRowCount(0)
 
@@ -340,30 +377,25 @@ class HistoryPage(QWidget):
         search_query = self.search_field.text().strip()
 
         try:
-            # Chuyển đổi selected_date thành một đối tượng datetime
-            date_object = datetime.strptime(selected_date, "%Y-%m-%d")
-
-            # Tạo ISODate cho MongoDB (đặt giờ là 00:00:00)
-            start_of_day = datetime(date_object.year, date_object.month, date_object.day)
-
-            # Tạo đối tượng end_of_day (23:59:59) của ngày đã chọn
-            end_of_day = start_of_day + timedelta(days=1)  # Cộng thêm 1 ngày để lấy ngày hôm sau
-
-            # Tạo query filter
-            query_filter = {
-                "time_out": {
-                    "$gte": start_of_day,  # Tìm tài liệu có time_out lớn hơn hoặc bằng 00:00:00 của ngày đã chọn
-                    "$lt": end_of_day  # Tìm tài liệu có time_out nhỏ hơn 00:00:00 của ngày hôm sau
-                }
+            # Gọi API by_parking_date
+            api_url = f"{self.cloud_server_url}histories/by_parking_date"
+            params = {
+                "parking_id": self.parking_id,
+                "date": selected_date
             }
             
-            # Thêm điều kiện license plate nếu có search query
-            # Dùng regex để tìm gần đúng (case-insensitive, substring match)
-            if search_query:
-                query_filter["license_plate"] = {"$regex": search_query, "$options": "i"}
+            response = requests.get(api_url, params=params, timeout=10)
             
-            # Thực hiện truy vấn
-            data = list(self.collection.find(query_filter).sort("time_out", -1))
+            if response.status_code != 200:
+                QMessageBox.warning(self, "Warning", "Không thể lấy dữ liệu từ server")
+                return
+            
+            result = response.json()
+            data = result.get("data", [])
+            
+            # Filter theo search query nếu có (client-side filtering)
+            if search_query:
+                data = [item for item in data if search_query.lower() in item.get("license_plate", "").lower()]
             
             # Populate the table with filtered data
             for row, record in enumerate(data):
@@ -372,22 +404,33 @@ class HistoryPage(QWidget):
                 # License Plate
                 self.table_widget.setItem(row, 0, QTableWidgetItem(record.get("license_plate", "")))
                 
-                # User ID
-                self.table_widget.setItem(row, 1, QTableWidgetItem(record.get("user_id", "")))
+                # User ID (không có trong API response)
+                self.table_widget.setItem(row, 1, QTableWidgetItem("N/A"))
                 
-                # Time In
-                time_in = record.get("time_in", "")
-                time_in_str = time_in.strftime('%Y-%m-%d %H:%M:%S') if time_in else ""
+                # Time In (ISO string from API)
+                time_in_str = record.get("time_in", "")
+                if time_in_str:
+                    try:
+                        time_in_dt = datetime.fromisoformat(time_in_str.replace("Z", "+00:00"))
+                        time_in_str = time_in_dt.strftime('%Y-%m-%d %H:%M:%S')
+                    except:
+                        pass
                 self.table_widget.setItem(row, 2, QTableWidgetItem(time_in_str))
                 
-                # Time Out
-                time_out = record.get("time_out", "")
-                time_out_str = time_out.strftime('%Y-%m-%d %H:%M:%S') if time_out else ""
+                # Time Out (ISO string from API)
+                time_out_str = record.get("time_out", "")
+                if time_out_str:
+                    try:
+                        time_out_dt = datetime.fromisoformat(time_out_str.replace("Z", "+00:00"))
+                        time_out_str = time_out_dt.strftime('%Y-%m-%d %H:%M:%S')
+                    except:
+                        pass
                 self.table_widget.setItem(row, 3, QTableWidgetItem(time_out_str))
                 
                 # Parking Time (hours)
                 parking_time = record.get("parking_time", 0)
-                self.table_widget.setItem(row, 4, QTableWidgetItem(f"{parking_time:.2f}"))
+                formatted_time = format_parking_time(parking_time)
+                self.table_widget.setItem(row, 4, QTableWidgetItem(formatted_time))
                 
                 # Total Price
                 total_price = record.get("total_price", 0)

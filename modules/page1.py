@@ -17,9 +17,9 @@ class ParkingSlotPage(QWidget):
         self.cloud_server_url = get_cloud_server_url()
         self.url_cloud_server = self.cloud_server_url  # Alias để Thread có thể dùng
         
-        self.slot_names = ['A0', 'B0', 'C0', 'D0', 'A1', 'B1', 'C1', 'D1', 
-                          'A2', 'B2', 'C2', 'D2', 'A3', 'B3', 'C3', 'D3', 
-                          'A4', 'B4', 'C4', 'D4']
+        self.slot_names = ['A0', 'B0', 'C0', 'A1', 'B1', 'C1', 
+                          'A2', 'B2', 'C2', 'A3', 'B3', 'C3', 
+                          'A4', 'B4', 'C4']
         self.slots = {}
         self.duplicate_licenses = {}  # Track duplicate license plates
         
@@ -44,7 +44,7 @@ class ParkingSlotPage(QWidget):
         
         # Stat cards
         self.total_slots_card = self.create_stat_card(
-            "Total Slots", "20", 
+            "Total Slots", "15", 
             qta.icon('fa5s.car', color='#2196F3'), 
             "#E3F2FD", "#2196F3"
         )
@@ -54,7 +54,7 @@ class ParkingSlotPage(QWidget):
             "#FFEBEE", "#F44336"
         )
         self.available_card = self.create_stat_card(
-            "Available", "20", 
+            "Available", "15", 
             qta.icon('fa5s.check-circle', color='#4CAF50'), 
             "#E8F5E9", "#4CAF50"
         )
@@ -117,7 +117,7 @@ class ParkingSlotPage(QWidget):
         
         for i, slot_name in enumerate(self.slot_names):
             slot_widget = self.create_modern_slot(slot_name, "")
-            slots_layout.addWidget(slot_widget, i // 4, i % 4)
+            slots_layout.addWidget(slot_widget, i // 3, i % 3)
             self.slots[slot_name] = slot_widget
         
         slots_container.setLayout(slots_layout)
@@ -206,7 +206,7 @@ class ParkingSlotPage(QWidget):
         """Create a modern parking slot widget with gradient and animations"""
         slot_widget = QWidget()
         slot_widget.setObjectName("parkingSlot")
-        slot_widget.setFixedSize(160, 120)
+        slot_widget.setFixedSize(220, 90)
         
         slot_layout = QVBoxLayout()
         slot_layout.setContentsMargins(12, 12, 12, 12)

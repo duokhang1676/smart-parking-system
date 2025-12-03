@@ -4,8 +4,9 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QDateEdit,
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt, QDate, QTimer, QStringListModel
 from datetime import datetime, timedelta
+import requests
 
-from database.db_manager import db_manager, get_collection, get_parking_id
+from database.db_manager import get_parking_id, get_cloud_server_url
 from modules.theme_colors import AppColors
 
 class CarsInParkingPage(QWidget):
@@ -15,28 +16,9 @@ class CarsInParkingPage(QWidget):
         self.setStyleSheet(f"background-color: {AppColors.BG_WHITE};")
         layout = QVBoxLayout(self)
 
-        # Lấy PARKING_ID từ config
+        # Lấy thông tin từ config
         self.parking_id = get_parking_id()
-
-        # Kết nối tới MongoDB
-        try:
-            self.collection = get_collection("parked_vehicles")  
-            
-            # Kiểm tra kết nối
-            if not db_manager.is_connected():
-                raise ConnectionError("Không thể kết nối MongoDB")
-                
-        except Exception as e:
-            QMessageBox.critical(
-                self,
-                "Database Error",
-                f"Không thể kết nối MongoDB:\n{str(e)}\n\n"
-                "Kiểm tra:\n"
-                "1. MongoDB server đang chạy\n"
-                "2. File .env có connection string đúng\n"
-                "3. Network connection (nếu dùng Atlas)"
-            )
-            self.collection = None
+        self.cloud_server_url = get_cloud_server_url()
 
         # Cache cho license plates (tối ưu hiệu suất search)
         self.license_plates_cache = []
@@ -176,31 +158,21 @@ class CarsInParkingPage(QWidget):
 
     def update_license_cache(self):
         """
-        Update cache danh sách biển số xe từ MongoDB.
-        Data có cấu trúc NESTED (lồng nhau)!
+        Update cache danh sách biển số xe từ API.
         CHỈ lấy xe từ bãi hiện tại (self.parking_id)
         """
-        if self.collection is None:
-            return
-        
         try:
-            license_plates = []
+            api_url = f"{self.cloud_server_url}parked_vehicles/get_parked_vehicles"
+            response = requests.post(api_url, json={"parking_id": self.parking_id}, timeout=5)
             
-            # Lấy ONLY document của bãi xe hiện tại
-            parking_doc = self.collection.find_one({"parking_id": self.parking_id})
-            
-            if parking_doc:
-                # Lấy mảng "list" chứa các xe
-                vehicles = parking_doc.get("list", [])
+            if response.status_code == 200:
+                data = response.json()
+                vehicles = data.get("parked_vehicles", [])
                 
-                # Loop qua từng xe trong mảng
-                for vehicle in vehicles:
-                    plate = vehicle.get("license_plate", "")
-                    if plate and plate not in license_plates:
-                        license_plates.append(plate)
-            
-            self.license_plates_cache = license_plates
-            self.completer_model.setStringList(self.license_plates_cache)
+                # Lấy unique license plates
+                license_plates = list(set([v.get("license_plate", "") for v in vehicles if v.get("license_plate")]))
+                self.license_plates_cache = sorted(license_plates)
+                self.completer_model.setStringList(self.license_plates_cache)
             
         except Exception as e:
             print(f"Lỗi update cache: {e}")
@@ -228,36 +200,23 @@ class CarsInParkingPage(QWidget):
 
     def refresh_table(self):
         """
-        Refresh the data from MongoDB and update the table.
-        
-        NESTED data structure!
-        Document structure:
-        {
-          "parking_id": "parking_001",
-            "list": [
-                {"license_plate": "30K-55055", "user_id": "00", ...},
-                {"license_plate": "30G-49344", "user_id": "01", ...}
-            ]
-        }
+        Refresh the data from API and update the table.
         """
-        if self.collection is None:
-            QMessageBox.warning(self, "Warning", "No database connection")
-            return
-        
         self.table_widget.setRowCount(0)
 
         try:
-            # Lấy ONLY document của bãi xe hiện tại
-            parking_doc = self.collection.find_one({"parking_id": self.parking_id})
+            # Gọi API để lấy danh sách xe đang đỗ
+            api_url = f"{self.cloud_server_url}parked_vehicles/get_parked_vehicles"
+            response = requests.post(api_url, json={"parking_id": self.parking_id}, timeout=10)
             
-            if not parking_doc:
-                print(f"Parking not found: {self.parking_id}")
+            if response.status_code != 200:
+                QMessageBox.warning(self, "Warning", "Không thể lấy dữ liệu từ server")
                 return
             
-            row = 0
+            data = response.json()
+            vehicles = data.get("parked_vehicles", [])
             
-            # Lấy danh sách xe trong bãi (nested array)
-            vehicles = parking_doc.get("list", [])
+            row = 0
             
             # Loop qua từng xe
             for vehicle in vehicles:
@@ -315,7 +274,7 @@ class CarsInParkingPage(QWidget):
             QMessageBox.critical(self, "Error", f"Cannot load data:\n{str(e)}")
 
     def search_data(self):
-        """Search the data based on the selected date and license."""
+        """Search the data based on license plate via API."""
         import re
         
         # Clear existing data in the table
@@ -330,19 +289,22 @@ class CarsInParkingPage(QWidget):
             return
         
         try:
-            # Fetch ONLY bãi xe hiện tại
-            parking_doc = self.collection.find_one({"parking_id": self.parking_id})
+            # Gọi API để lấy danh sách xe đang đỗ
+            api_url = f"{self.cloud_server_url}parked_vehicles/get_parked_vehicles"
+            response = requests.post(api_url, json={"parking_id": self.parking_id}, timeout=10)
             
-            if not parking_doc:
-                print(f"Parking is not found: {self.parking_id}")
+            if response.status_code != 200:
+                QMessageBox.warning(self, "Warning", "Không thể lấy dữ liệu từ server")
                 return
             
-            # Create case-insensitive regex pattern
+            data = response.json()
+            vehicles = data.get("parked_vehicles", [])
+            
+            # Filter theo search query
             pattern = re.compile(search_query, re.IGNORECASE)
             
             # Loop through vehicles to find matches
             row = 0
-            vehicles = parking_doc.get("list", [])
             for vehicle in vehicles:
                 license_plate = vehicle.get("license_plate", "")
                 
