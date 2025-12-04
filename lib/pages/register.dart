@@ -75,6 +75,31 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
+  // Validate license plate format
+  // Valid format: 2 digits + 1 uppercase letter + 4-5 digits
+  // Examples: 30A99999, 30A9999
+  // Invalid: A99999, 99999, 30@99999, 30a99999, 300A99999, 30A999
+  String? _validateLicensePlate(String licensePlate) {
+    // Check if empty
+    if (licensePlate.isEmpty) {
+      return 'License plate is required';
+    }
+
+    // Trim whitespace
+    licensePlate = licensePlate.trim();
+
+    // Check format using regex: 2 digits + 1 uppercase letter + 4-5 digits
+    // Pattern: ^[0-9]{2}[A-Z]{1}[0-9]{4,5}$
+    final RegExp licensePlateRegex = RegExp(r'^[0-9]{2}[A-Z]{1}[0-9]{4,5}$');
+    
+    if (!licensePlateRegex.hasMatch(licensePlate)) {
+      return 'Invalid license plate format. Example: 30A99999 or 30A9999';
+    }
+
+    // Valid format
+    return null;
+  }
+
   // Load all active parkings from API
   Future<void> _loadActiveParkings() async {
     try {
@@ -731,6 +756,17 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
     
+    // Validate license plate format
+    String? licensePlateError = _validateLicensePlate(_licensePlateController.text.trim());
+    if (licensePlateError != null) {
+      _showErrorMessage(licensePlateError);
+      return;
+    }
+    
+    // Check if license plate is already registered for this parking lot
+    // This will be done by calling the API which will return appropriate error
+    // The API registerMonthlyParking will handle duplicate check and return error message
+    
     if (_vehicleMakeController.text.isEmpty) {
       _showErrorMessage('Please enter your vehicle make and model');
       return;
@@ -798,16 +834,30 @@ class _RegisterPageState extends State<RegisterPage> {
       // Handle payment result
       if (result == 'payment_initiated') {
         // User confirmed they've made the transfer
-        _showSuccessMessage('Thank you! Registration will be activated after payment confirmation.');
-        
-        // Create pending registration record (if you have backend API)
-        await _createPendingRegistration(paymentOrder);
-        
-        // Clear form and navigate back
-        _refreshRegisterData();
-        Future.delayed(Duration(seconds: 3), () {
-          Navigator.pushNamed(context, '/main');
-        });
+        // Now try to create registration in backend
+        try {
+          await _createPendingRegistration(paymentOrder);
+          
+          _showSuccessMessage('Thank you! Registration will be activated after payment confirmation.');
+          
+          // Clear form and navigate back
+          _refreshRegisterData();
+          Future.delayed(Duration(seconds: 3), () {
+            Navigator.pushNamed(context, '/main');
+          });
+          
+        } catch (e) {
+          // Handle registration errors (like duplicate license plate)
+          String errorMsg = e.toString();
+          if (errorMsg.contains('License plate already registered')) {
+            _showErrorMessage('License plate already registered');
+          } else if (errorMsg.contains('Exception:')) {
+            // Remove 'Exception: ' prefix
+            _showErrorMessage(errorMsg.replaceFirst('Exception: ', ''));
+          } else {
+            _showErrorMessage('Registration failed. Please try again.');
+          }
+        }
       } else {
         // User cancelled payment
         _showErrorMessage('Payment was cancelled. You can try again anytime.');
@@ -827,19 +877,31 @@ class _RegisterPageState extends State<RegisterPage> {
   // Create pending registration record (optional - for tracking)
   Future<void> _createPendingRegistration(Map<String, dynamic> paymentOrder) async {
     try {
-      // If you have API to store pending registrations
-      final pendingData = PaymentService.createPendingRegistration(
-        paymentOrder: paymentOrder,
+      // Call API to register monthly parking
+      // This will check for duplicate license plates and return appropriate error
+      final response = await ParkingService.registerMonthlyParking(
+        userId: userId,
+        parkingId: _selectedParkingId,
+        licensePlate: _licensePlateController.text.trim(),
       );
       
-      print('Pending registration created: ${pendingData['order_id']}');
+      print('Registration API response: $response');
       
-      // TODO: Call API to store pending registration
-      // await ApiService.post('/registers/create_pending', pendingData);
+      // Check response status
+      if (response['status'] == 'success') {
+        print('Registration successful: ${response['message']}');
+      } else if (response['status'] == 'duplicate') {
+        // License plate already registered
+        throw Exception('License plate already registered');
+      } else {
+        // Other errors
+        throw Exception(response['message'] ?? 'Registration failed');
+      }
       
     } catch (e) {
-      print('Failed to create pending registration: $e');
-      // Non-critical error - don't show to user
+      print('Failed to create registration: $e');
+      // Re-throw error to be handled by caller
+      rethrow;
     }
   }
 

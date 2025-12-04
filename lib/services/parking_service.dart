@@ -89,6 +89,9 @@ class ParkingService {
           'time_in': vehicleData['time_in'],
           'parking_id': vehicleData['parking_id'],
           'num_slot': vehicleData['num_slot'],
+          // num_slot logic: 0 = parked correctly, 1 = parked incorrectly (multiple slots, no slot, or in walkway)
+          'is_parked_correctly': vehicleData['num_slot'] == 0,
+          'parking_status': vehicleData['num_slot'] == 0 ? 'correct' : 'incorrect',
         }).toList();
         
         print('Found ${vehicles.length} parked vehicles for user $userId in parking $parkingId');

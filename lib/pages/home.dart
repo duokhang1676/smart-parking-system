@@ -1235,19 +1235,38 @@ class _HomePageState extends State<HomePage> {
     int numSlot = vehicle['num_slot'] ?? 0;
     String timeIn = vehicle['time_in'] ?? '';
 
-    // Determine status based on num_slot logic (similar to Unity code)
+    // Determine status based on num_slot logic
+    // num_slot = 0: Parked correctly (bình thường)
+    // num_slot = 1: Parked incorrectly - chia 2 trường hợp:
+    //   - Có slot_name: Đậu nhiều chỗ
+    //   - Không có slot_name: Đậu sai (không đúng chỗ/ngoài đường)
     String statusText;
     Color statusColor;
+    IconData statusIcon;
     
-    if (numSlot > 1) {
-      statusText = 'Vehicle parked incorrectly';
-      statusColor = Colors.red;
-    } else if (numSlot == 0) {
-      statusText = 'Vehicle not in designated slot';
-      statusColor = Colors.orange;
-    } else {
-      statusText = slotName.isNotEmpty ? 'Slot: $slotName' : 'In designated slot';
+    if (numSlot == 0) {
+      // Parked correctly
+      statusText = slotName.isNotEmpty ? 'Slot: $slotName ✓' : 'Parked correctly ✓';
       statusColor = Colors.green;
+      statusIcon = Icons.check_circle;
+    } else if (numSlot == 1) {
+      // Parked incorrectly - check slot_name to determine type
+      if (slotName.isNotEmpty) {
+        // Has slot_name = parked in multiple slots
+        statusText = 'Parked in multiple slots ⚠️';
+        statusColor = Colors.orange;
+        statusIcon = Icons.multiple_stop;
+      } else {
+        // No slot_name = parked incorrectly (wrong place/walkway)
+        statusText = 'Parked incorrectly ⚠️';
+        statusColor = Colors.red;
+        statusIcon = Icons.warning;
+      }
+    } else {
+      // Unknown status
+      statusText = 'Unknown status';
+      statusColor = Colors.grey;
+      statusIcon = Icons.help_outline;
     }
 
     return Container(
@@ -1314,16 +1333,26 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
           ),
-          SizedBox(height: 4),
+          SizedBox(height: 6),
           
-          // Status row
-          Text(
-            statusText,
-            style: TextStyle(
-              fontSize: 12,
-              color: statusColor,
-              fontWeight: FontWeight.w600,
-            ),
+          // Status row with icon
+          Row(
+            children: [
+              Icon(
+                statusIcon,
+                size: 16,
+                color: statusColor,
+              ),
+              SizedBox(width: 6),
+              Text(
+                statusText,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: statusColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1749,7 +1778,7 @@ class _HomePageState extends State<HomePage> {
   AppBar _appBar() {
     return AppBar(
         title: const Text(
-        'Trang chủ',
+        'Home',
         style: TextStyle(
           color: Colors.black,
           fontWeight: FontWeight.bold,
