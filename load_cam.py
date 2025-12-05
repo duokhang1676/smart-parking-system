@@ -64,9 +64,11 @@ for i, cam_id in enumerate(CAMS):
         cap.set(cv2.CAP_PROP_FPS, 30)
 
     # Wait and read
-    time.sleep(0.5)
+    time.sleep(1)
     ret, frame = cap.read()
-    time.sleep(0.5)
+    time.sleep(1)
+    ret, frame = cap.read()
+    time.sleep(1)
     ret, frame = cap.read()
 
     if ret:
