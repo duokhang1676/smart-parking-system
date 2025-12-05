@@ -42,13 +42,13 @@ for i, cam_id in enumerate(CAMS):
     # CSI CAMERA (IMX219)
     if cam_id == "0":
         gst_pipeline = (
-                "nvarguscamerasrc ! "
-                "video/x-raw(memory:NVMM), width=416, height=416, framerate=30/1 ! "
-                "nvvidconv ! "
-                "video/x-raw, format=BGRx ! "
-                "videoconvert ! "
-                "video/x-raw, format=BGR ! appsink"
-            )
+            "nvarguscamerasrc sensor-id=0 ! "
+            "video/x-raw(memory:NVMM), width=1280, height=720, format=NV12, framerate=30/1 ! "
+            "nvvidconv flip-method=0 ! "
+            "video/x-raw, format=BGRx ! "
+            "videoconvert ! "
+            "video/x-raw, format=BGR ! appsink drop=true"
+        )
         cap = cv2.VideoCapture(gst_pipeline, cv2.CAP_GSTREAMER)
 
 
@@ -57,7 +57,15 @@ for i, cam_id in enumerate(CAMS):
         device_id = int(cam_id)
         cap = cv2.VideoCapture(device_id, cv2.CAP_V4L2)
 
+        # USB camera settings
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        cap.set(cv2.CAP_PROP_FPS, 30)
+
     # Wait and read
+    time.sleep(0.5)
+    ret, frame = cap.read()
     time.sleep(0.5)
     ret, frame = cap.read()
 
