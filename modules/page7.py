@@ -29,11 +29,13 @@ class EnvironmentPage(QWidget):
         self.mqtt_broker = "broker.hivemq.com"
         self.mqtt_port = 1883
         self.mqtt_topic_light = "parking/light"
+        self.mqtt_topic_light_mode = "parking/light/mode"
         self.mqtt_topic_barrier_in = "parking/barrier/in"
         self.mqtt_topic_barrier_out = "parking/barrier/out"
         
         # State variables
         self.light_state = False  # False = off, True = on
+        self.light_mode_auto = False  # False = manual (off), True = auto (on)
         self.barrier_in_state = False  # False = closed, True = open
         self.barrier_out_state = False  # False = closed, True = open
         
@@ -259,10 +261,19 @@ class EnvironmentPage(QWidget):
         self.barrier_out_btn.setFixedWidth(180)
         buttons_layout.addWidget(self.barrier_out_btn)
         
+        # Mode Toggle Button (Auto/Manual)
+        self.mode_toggle_btn = QPushButton()
+        self.mode_toggle_btn.setText("AUTO Mode")
+        self.mode_toggle_btn.setIcon(qta.icon('fa5s.exchange-alt', color='white'))
+        self.mode_toggle_btn.clicked.connect(self.toggle_light_mode)
+        self.mode_toggle_btn.setFixedWidth(180)
+        buttons_layout.addWidget(self.mode_toggle_btn)
+        
         # Initialize button styles
         self.update_light_button_style()
         self.update_barrier_in_button_style()
         self.update_barrier_out_button_style()
+        self.update_mode_toggle_style()
         
         # Center all buttons
         button_container = QHBoxLayout()
@@ -681,5 +692,89 @@ class EnvironmentPage(QWidget):
                 }
                 QPushButton:pressed {
                     background: #D42C3E;
+                }
+            """)
+    
+    def toggle_light_mode(self):
+        """Toggle light mode between manual and auto"""
+        self.light_mode_auto = not self.light_mode_auto
+        message = "on" if self.light_mode_auto else "off"
+        
+        try:
+            result = self.mqtt_client.publish(self.mqtt_topic_light_mode, message, qos=1)
+            if result.rc == mqtt.MQTT_ERR_SUCCESS:
+                print(f"[MQTT PUBLISH] Sent light mode: {message} to {self.mqtt_topic_light_mode}")
+                self.update_mode_toggle_style()
+                
+                # Update light button state based on mode
+                if self.light_mode_auto:
+                    # Disable manual light button in auto mode
+                    self.light_btn.setEnabled(False)
+                    self.light_btn.setToolTip("Disabled in Auto Mode")
+                    self.mode_toggle_btn.setToolTip("🤖 Currently in Auto Mode - Click to switch to Manual")
+                else:
+                    # Enable manual light button in manual mode
+                    self.light_btn.setEnabled(True)
+                    self.light_btn.setToolTip("")
+                    self.mode_toggle_btn.setToolTip("👤 Currently in Manual Mode - Click to switch to Auto")
+            else:
+                print(f"[MQTT ERROR] Failed to publish mode: {result.rc}")
+                QMessageBox.warning(
+                    self,
+                    "MQTT Error",
+                    f"Failed to send mode command. Error code: {result.rc}"
+                )
+        except Exception as e:
+            print(f"[MQTT ERROR] Exception: {e}")
+            QMessageBox.critical(
+                self,
+                "Connection Error",
+                f"Failed to communicate with MQTT broker:\n{str(e)}"
+            )
+    
+    def update_mode_toggle_style(self):
+        """Update mode toggle button appearance"""
+        if self.light_mode_auto:
+            # Auto mode ON - Green gradient
+            self.mode_toggle_btn.setText("Switch to MANUAL")
+            self.mode_toggle_btn.setStyleSheet("""
+                QPushButton {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #56ab2f, stop:1 #a8e063);
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    padding: 12px 20px;
+                    font-size: 14px;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #6bc245, stop:1 #b8f073);
+                }
+                QPushButton:pressed {
+                    background: #4A9428;
+                }
+            """)
+        else:
+            # Manual mode - Blue gradient
+            self.mode_toggle_btn.setText("Switch to AUTO")
+            self.mode_toggle_btn.setStyleSheet("""
+                QPushButton {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #667eea, stop:1 #764ba2);
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    padding: 12px 20px;
+                    font-size: 14px;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #7b91f7, stop:1 #8659b5);
+                }
+                QPushButton:pressed {
+                    background: #5E35B1;
                 }
             """)
