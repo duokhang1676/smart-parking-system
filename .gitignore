@@ -53,3 +53,7 @@ dist/
 backups/
 *.bson
 backup_*.json
+
+*.yaml
+*.yml
+*.json
