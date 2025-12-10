@@ -82,7 +82,6 @@ def start_connect_bgm220():
                 ser.write(b'open_in\n')  # Gửi lệnh mở barie vào
                 print("[SEND] Mở barie vào")
                 globals.open_in = False
-
             if globals.open_out:
                 threading.Thread(target=play_sound, args=('tam-biet-quy-khach.mp3',)).start()
                 ser.write(b'open_out\n')  # Gửi lệnh mở barie ra
