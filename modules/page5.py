@@ -21,8 +21,9 @@ class CoordinatesSetup(QWidget):
         self.PARKING_ID = get_parking_id()
         self.ClOUD_SERVER_URL = get_cloud_server_url()
         
-        print(f"Page 5 đang quản lý bãi xe: {self.PARKING_ID}")
-        print(f"Page 5 Cloud Server: {self.ClOUD_SERVER_URL}")
+        # Debug logs (comment out for faster startup)
+        # print(f"Page 5 đang quản lý bãi xe: {self.PARKING_ID}")
+        # print(f"Page 5 Cloud Server: {self.ClOUD_SERVER_URL}")
         
         self.image = None
         self.camera_id = None

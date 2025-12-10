@@ -23,7 +23,6 @@ from modules.page6 import ParkingInfoPage
 from modules.page7 import EnvironmentPage
 from modules.theme_colors import AppColors
 
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -50,7 +49,7 @@ class MainWindow(QMainWindow):
         sidebar_layout = QVBoxLayout(sidebar)
         sidebar_layout.setContentsMargins(20, 30, 20, 20)
         sidebar_layout.setSpacing(15)
-        
+        0 
         # Logo/Brand
         brand_layout = QVBoxLayout()
         brand_layout.setSpacing(8)
@@ -409,12 +408,16 @@ class MainWindow(QMainWindow):
 if __name__ == "__main__":
     import sys
     import os
+    import warnings
+    
+    # Suppress qt_material warnings
+    warnings.filterwarnings('ignore', category=UserWarning)
     
     app = QApplication(sys.argv)
     
     # ========== APPLY MATERIAL DESIGN THEME ==========
     # Suppress SVG warnings on Windows
-    os.environ['QT_LOGGING_RULES'] = 'qt.svg.warning=false'
+    os.environ['QT_LOGGING_RULES'] = 'qt.svg.warning=false;qt.svg.info=false'
     
     if HAS_QT_MATERIAL:
         # Load saved theme preference (default: dark_teal)
