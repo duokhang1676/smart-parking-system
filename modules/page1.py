@@ -28,10 +28,16 @@ class ParkingSlotPage(QWidget):
         
         self.init_ui()
 
-        # Timer for data update
+        # Timer for data update - delay first fetch by 2 seconds
         self.timer = QTimer()
         self.timer.timeout.connect(self.fetch_and_update_data)
-        self.timer.start(10000)
+        self.timer.setSingleShot(True)
+        self.timer.start(2000)  # First fetch after 2 seconds
+        
+        # Regular update timer
+        self.update_timer = QTimer()
+        self.update_timer.timeout.connect(self.fetch_and_update_data)
+        self.update_timer.start(10000)  # Update every 10 seconds
 
     def init_ui(self):
         main_layout = QVBoxLayout()

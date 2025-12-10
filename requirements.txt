@@ -1,106 +1,57 @@
-# All required packages with specific versions, run with: python 3.11.9
-albucore==0.0.24
-albumentations==2.0.8
-annotated-types==0.7.0
-asttokens==3.0.0
-blinker==1.9.0
-certifi==2025.10.5
-charset-normalizer==3.4.4
-click==8.3.0
-colorama==0.4.6
-coloredlogs==15.0.1
-contourpy==1.3.3
-cycler==0.12.1
-decorator==5.2.1
-dnspython==2.8.0
-easyocr==1.7.2
-executing==2.2.1
-filelock==3.20.0
-Flask==3.1.2
-flatbuffers==25.9.23
-fonttools==4.60.1
-fsspec==2025.10.0
-humanfriendly==10.0
-idna==3.11
-ImageIO==2.37.2
-ipython==9.7.0
-ipython_pygments_lexers==1.1.1
-itsdangerous==2.2.0
-jedi==0.19.2
-Jinja2==3.1.6
-keyboard==0.13.5
-kiwisolver==1.4.9
-lazy_loader==0.4
-MarkupSafe==3.0.3
-matplotlib==3.10.7
-matplotlib-inline==0.2.1
-ml_dtypes==0.5.3
-mpmath==1.3.0
-networkx==3.5
-ninja==1.13.0
-numpy==1.26.4
-onnx==1.19.1
-onnxruntime==1.23.2
-opencv-contrib-python==4.12.0.88
-opencv-python==4.12.0.88
-opencv-python-headless==4.12.0.88
-packaging==25.0
-pandas==2.3.3
-parso==0.8.5
-pillow==12.0.0
-polars==1.35.1
-polars-runtime-32==1.35.1
-prompt_toolkit==3.0.52
-protobuf==6.33.0
-psutil==7.1.3
-pure_eval==0.2.3
-pyclipper==1.3.0.post6
-pycocotools==2.0.10
-pydantic==2.12.4
-pydantic_core==2.41.5
-Pygments==2.19.2
-pymongo==4.15.3
-pynput==1.8.1
-pyparsing==3.2.5
-PyPDF2==3.0.1
-PyQt5==5.15.11
-PyQt5-Qt5==5.15.2
-PyQt5_sip==12.17.1
-pyreadline3==3.5.4
-pytesseract==0.3.13
-python-bidi==0.6.7
-python-dateutil==2.9.0.post0
-python-dotenv==1.2.1
-python-vlc==3.0.21203
-pytz==2025.2
-pywin32==311
-PyYAML==6.0.3
-reportlab==4.4.4
-requests==2.32.5
-scikit-image==0.25.2
-scipy==1.16.3
-seaborn==0.13.2
-shapely==2.1.2
-simsimd==6.5.3
-six==1.17.0
-stack-data==0.6.3
-stringzilla==4.2.3
-sympy==1.14.0
-tifffile==2025.10.16
-torch==2.1.0+cpu
-torchaudio==2.1.0+cpu
-torchvision==0.16.0+cpu
-tqdm==4.67.1
-traitlets==5.14.3
-typing-inspection==0.4.2
-typing_extensions==4.15.0
-tzdata==2025.2
-ultralytics==8.3.226
-ultralytics-thop==2.0.18
-urllib3==2.5.0
-wcwidth==0.2.14
-Werkzeug==3.1.3
+# ========================================
+# PARKING MANAGEMENT WINDOWS APP
+# Essential Dependencies Only
+# Python 3.10+
+# ========================================
 
-# UI Enhancement packages
+# ===== GUI FRAMEWORK =====
+PyQt5==5.15.11
 qt-material==2.14
 QtAwesome==1.3.1
+
+# ===== HTTP & API =====
+requests==2.32.3
+
+# ===== DATABASE =====
+pymongo==4.6.1
+
+# ===== CONFIGURATION =====
+python-dotenv==1.0.1
+
+# ===== COMPUTER VISION & AI =====
+opencv-python==4.9.0.80
+torch==2.1.0
+torchvision==0.16.0
+ultralytics==8.1.0
+Pillow==10.2.0
+numpy==1.26.4
+
+# ===== MQTT IoT =====
+paho-mqtt==1.6.1
+
+# ===== PDF & PRINTING =====
+PyPDF2==3.0.1
+reportlab==4.0.9
+pywin32==306
+
+# ===== UTILITIES =====
+PyYAML==6.0.1
+python-vlc==3.0.20123
+keyboard==0.13.5
+
+# ========================================
+# INSTALLATION INSTRUCTIONS
+# ========================================
+# 1. Create virtual environment:
+#    python -m venv venv
+#
+# 2. Activate environment:
+#    Windows: venv\Scripts\activate
+#    Linux/Mac: source venv/bin/activate
+#
+# 3. Install dependencies:
+#    pip install -r requirements.txt
+#
+# 4. For PyTorch with CUDA support (optional):
+#    pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+# ========================================

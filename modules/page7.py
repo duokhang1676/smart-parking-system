@@ -5,6 +5,7 @@ from PyQt5.QtGui import QFont
 import qtawesome as qta
 import requests
 from datetime import datetime
+import paho.mqtt.client as mqtt
 
 from database.db_manager import get_parking_id, get_cloud_server_url
 from modules.theme_colors import AppColors
@@ -23,6 +24,29 @@ class EnvironmentPage(QWidget):
         
         # Data storage
         self.env_data = None
+        
+        # MQTT Configuration
+        self.mqtt_broker = "broker.hivemq.com"
+        self.mqtt_port = 1883
+        self.mqtt_topic_light = "parking/light"
+        self.mqtt_topic_barrier_in = "parking/barrier/in"
+        self.mqtt_topic_barrier_out = "parking/barrier/out"
+        
+        # State variables
+        self.light_state = False  # False = off, True = on
+        self.barrier_in_state = False  # False = closed, True = open
+        self.barrier_out_state = False  # False = closed, True = open
+        
+        # Initialize MQTT client
+        self.mqtt_client = mqtt.Client()
+        self.mqtt_client.on_connect = self.on_mqtt_connect
+        self.mqtt_client.on_publish = self.on_mqtt_publish
+        
+        try:
+            self.mqtt_client.connect(self.mqtt_broker, self.mqtt_port, 60)
+            self.mqtt_client.loop_start()
+        except Exception as e:
+            print(f"[MQTT ERROR] Failed to connect: {e}")
         
         self.init_ui()
     
@@ -180,31 +204,72 @@ class EnvironmentPage(QWidget):
         details_frame.setLayout(details_layout)
         main_layout.addWidget(details_frame)
         
-        # ========== REFRESH BUTTON ==========
+        # ========== CONTROL BUTTONS (ALL IN ONE ROW) ==========
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setSpacing(15)
+        
+        # Refresh Button
         refresh_btn = QPushButton()
-        refresh_btn.setText("🔄 Refresh Data")
+        refresh_btn.setText("🔄 Refresh")
         refresh_btn.setIcon(qta.icon('fa5s.sync-alt', color='white'))
         refresh_btn.clicked.connect(self.refresh_data)
-        refresh_btn.setStyleSheet(f"""
-            QPushButton {{
+        refresh_btn.setFixedWidth(180)
+        refresh_btn.setStyleSheet("""
+            QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 {AppColors.get_gradient_style()});
+                    stop:0 #667eea, stop:1 #764ba2);
                 color: white;
                 border: none;
                 border-radius: 10px;
-                padding: 15px 30px;
-                font-size: 16px;
+                padding: 12px 20px;
+                font-size: 15px;
                 font-weight: bold;
-            }}
-            QPushButton:hover {{
+            }
+            QPushButton:hover {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 {AppColors.get_hover_gradient_style()});
-            }}
-            QPushButton:pressed {{
+                    stop:0 #7b91f7, stop:1 #8659b5);
+            }
+            QPushButton:pressed {
                 background: #5E35B1;
-            }}
+            }
         """)
-        main_layout.addWidget(refresh_btn, alignment=Qt.AlignCenter)
+        buttons_layout.addWidget(refresh_btn)
+        
+        # Light Control Button
+        self.light_btn = QPushButton()
+        self.light_btn.setText("💡 Light ON")
+        self.light_btn.setIcon(qta.icon('fa5s.lightbulb', color='white'))
+        self.light_btn.clicked.connect(self.toggle_light)
+        self.light_btn.setFixedWidth(180)
+        buttons_layout.addWidget(self.light_btn)
+        
+        # Barrier IN Button
+        self.barrier_in_btn = QPushButton()
+        self.barrier_in_btn.setText("🚧 Barrier IN")
+        self.barrier_in_btn.setIcon(qta.icon('fa5s.sign-in-alt', color='white'))
+        self.barrier_in_btn.clicked.connect(self.toggle_barrier_in)
+        self.barrier_in_btn.setFixedWidth(180)
+        buttons_layout.addWidget(self.barrier_in_btn)
+        
+        # Barrier OUT Button
+        self.barrier_out_btn = QPushButton()
+        self.barrier_out_btn.setText("🚧 Barrier OUT")
+        self.barrier_out_btn.setIcon(qta.icon('fa5s.sign-out-alt', color='white'))
+        self.barrier_out_btn.clicked.connect(self.toggle_barrier_out)
+        self.barrier_out_btn.setFixedWidth(180)
+        buttons_layout.addWidget(self.barrier_out_btn)
+        
+        # Initialize button styles
+        self.update_light_button_style()
+        self.update_barrier_in_button_style()
+        self.update_barrier_out_button_style()
+        
+        # Center all buttons
+        button_container = QHBoxLayout()
+        button_container.addStretch()
+        button_container.addLayout(buttons_layout)
+        button_container.addStretch()
+        main_layout.addLayout(button_container)
         
         main_layout.addStretch()
         self.setLayout(main_layout)
@@ -247,7 +312,7 @@ class EnvironmentPage(QWidget):
         value_label.setObjectName("valueLabel")
         value_label.setStyleSheet(f"""
             color: {text_color};
-            font-size: 36px;
+            font-size: 30px;
             font-weight: bold;
         """)
         
@@ -308,8 +373,6 @@ class EnvironmentPage(QWidget):
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             self.last_update_label.setText(current_time)
             
-            QMessageBox.information(self, "Success", "Dữ liệu đã được cập nhật!")
-            
         except requests.exceptions.Timeout:
             QMessageBox.critical(self, "Error", "Timeout khi kết nối tới server")
             self.update_status("Timeout", "#E74C3C")
@@ -353,7 +416,7 @@ class EnvironmentPage(QWidget):
             status_value_label.setText(status)
             status_value_label.setStyleSheet(f"""
                 color: {color};
-                font-size: 36px;
+                font-size: 30px;
                 font-weight: bold;
             """)
     
@@ -392,3 +455,231 @@ class EnvironmentPage(QWidget):
         """Apply theme styling"""
         self.is_dark_theme = is_dark
         # Theme can be customized here if needed
+    
+    # ========== MQTT METHODS ==========
+    def on_mqtt_connect(self, client, userdata, flags, rc):
+        """Callback when MQTT connects"""
+        if rc == 0:
+            print(f"[MQTT CONNECTED] Successfully connected to broker {self.mqtt_broker}")
+        else:
+            print(f"[MQTT ERROR] Connection failed with code: {rc}")
+    
+    def on_mqtt_publish(self, client, userdata, mid):
+        """Callback when MQTT publishes message"""
+        print(f"[MQTT PUBLISHED] Message ID: {mid}")
+    
+    def toggle_light(self):
+        """Toggle light on/off via MQTT"""
+        self.light_state = not self.light_state
+        message = "on" if self.light_state else "off"
+        
+        try:
+            result = self.mqtt_client.publish(self.mqtt_topic_light, message, qos=1)
+            if result.rc == mqtt.MQTT_ERR_SUCCESS:
+                print(f"[MQTT PUBLISH] Sent: {message} to {self.mqtt_topic_light}")
+                self.update_light_button_style()
+            else:
+                print(f"[MQTT ERROR] Failed to publish: {result.rc}")
+                QMessageBox.warning(
+                    self,
+                    "MQTT Error",
+                    f"Failed to send command. Error code: {result.rc}"
+                )
+        except Exception as e:
+            print(f"[MQTT ERROR] Exception: {e}")
+            QMessageBox.critical(
+                self,
+                "Connection Error",
+                f"Failed to communicate with MQTT broker:\n{str(e)}"
+            )
+    
+    def update_light_button_style(self):
+        """Update button appearance based on light state"""
+        if self.light_state:
+            # Light is ON - Yellow/Amber style
+            self.light_btn.setText("💡 Light OFF")
+            self.light_btn.setStyleSheet("""
+                QPushButton {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #FFD93D, stop:1 #FFA500);
+                    color: #333;
+                    border: none;
+                    border-radius: 10px;
+                    padding: 12px 20px;
+                    font-size: 15px;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #FFE066, stop:1 #FFB833);
+                }
+                QPushButton:pressed {
+                    background: #FF8C00;
+                }
+            """)
+        else:
+            # Light is OFF - Gray style
+            self.light_btn.setText("💡 Light ON")
+            self.light_btn.setStyleSheet("""
+                QPushButton {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #95A5A6, stop:1 #7F8C8D);
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    padding: 12px 20px;
+                    font-size: 15px;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #A8B8B9, stop:1 #8C9C9D);
+                }
+                QPushButton:pressed {
+                    background: #6C7A7B;
+                }
+            """)
+    
+    def toggle_barrier_in(self):
+        """Toggle barrier IN open/close via MQTT"""
+        self.barrier_in_state = not self.barrier_in_state
+        message = "open" if self.barrier_in_state else "close"
+        
+        try:
+            result = self.mqtt_client.publish(self.mqtt_topic_barrier_in, message, qos=1)
+            if result.rc == mqtt.MQTT_ERR_SUCCESS:
+                print(f"[MQTT PUBLISH] Sent: {message} to {self.mqtt_topic_barrier_in}")
+                self.update_barrier_in_button_style()
+            else:
+                print(f"[MQTT ERROR] Failed to publish: {result.rc}")
+                QMessageBox.warning(
+                    self,
+                    "MQTT Error",
+                    f"Failed to send command. Error code: {result.rc}"
+                )
+        except Exception as e:
+            print(f"[MQTT ERROR] Exception: {e}")
+            QMessageBox.critical(
+                self,
+                "Connection Error",
+                f"Failed to communicate with MQTT broker:\n{str(e)}"
+            )
+    
+    def toggle_barrier_out(self):
+        """Toggle barrier OUT open/close via MQTT"""
+        self.barrier_out_state = not self.barrier_out_state
+        message = "open" if self.barrier_out_state else "close"
+        
+        try:
+            result = self.mqtt_client.publish(self.mqtt_topic_barrier_out, message, qos=1)
+            if result.rc == mqtt.MQTT_ERR_SUCCESS:
+                print(f"[MQTT PUBLISH] Sent: {message} to {self.mqtt_topic_barrier_out}")
+                self.update_barrier_out_button_style()
+            else:
+                print(f"[MQTT ERROR] Failed to publish: {result.rc}")
+                QMessageBox.warning(
+                    self,
+                    "MQTT Error",
+                    f"Failed to send command. Error code: {result.rc}"
+                )
+        except Exception as e:
+            print(f"[MQTT ERROR] Exception: {e}")
+            QMessageBox.critical(
+                self,
+                "Connection Error",
+                f"Failed to communicate with MQTT broker:\n{str(e)}"
+            )
+    
+    def update_barrier_in_button_style(self):
+        """Update barrier IN button appearance based on state"""
+        if self.barrier_in_state:
+            # Barrier is OPEN - Green style
+            self.barrier_in_btn.setText("🚧 Close IN")
+            self.barrier_in_btn.setStyleSheet("""
+                QPushButton {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #56ab2f, stop:1 #a8e063);
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    padding: 12px 20px;
+                    font-size: 15px;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #6bc245, stop:1 #b8f073);
+                }
+                QPushButton:pressed {
+                    background: #4A9428;
+                }
+            """)
+        else:
+            # Barrier is CLOSED - Red style
+            self.barrier_in_btn.setText("🚧 Open IN")
+            self.barrier_in_btn.setStyleSheet("""
+                QPushButton {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #eb3349, stop:1 #f45c43);
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    padding: 12px 20px;
+                    font-size: 15px;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #f44456, stop:1 #ff6d50);
+                }
+                QPushButton:pressed {
+                    background: #D42C3E;
+                }
+            """)
+    
+    def update_barrier_out_button_style(self):
+        """Update barrier OUT button appearance based on state"""
+        if self.barrier_out_state:
+            # Barrier is OPEN - Green style
+            self.barrier_out_btn.setText("🚧 Close OUT")
+            self.barrier_out_btn.setStyleSheet("""
+                QPushButton {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #56ab2f, stop:1 #a8e063);
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    padding: 12px 20px;
+                    font-size: 15px;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #6bc245, stop:1 #b8f073);
+                }
+                QPushButton:pressed {
+                    background: #4A9428;
+                }
+            """)
+        else:
+            # Barrier is CLOSED - Red style
+            self.barrier_out_btn.setText("🚧 Open OUT")
+            self.barrier_out_btn.setStyleSheet("""
+                QPushButton {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #eb3349, stop:1 #f45c43);
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    padding: 12px 20px;
+                    font-size: 15px;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #f44456, stop:1 #ff6d50);
+                }
+                QPushButton:pressed {
+                    background: #D42C3E;
+                }
+            """)
