@@ -1,0 +1,20 @@
+- id: A0
+  coordinate: [133, 255]
+- id: A1
+  coordinate: [198, 248]
+- id: A2
+  coordinate: [278, 245]
+- id: A3
+  coordinate: [360, 245]
+- id: A4
+  coordinate: [431, 238]
+- id: B0
+  coordinate: [141, 369]
+- id: B1
+  coordinate: [221, 374]
+- id: B2
+  coordinate: [337, 362]
+- id: B3
+  coordinate: [438, 365]
+- id: B4
+  coordinate: [520, 357]
