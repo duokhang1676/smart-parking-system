@@ -14,14 +14,14 @@ except ImportError:
     print("Install with: pip install qt-material QtAwesome")
 
 import qtawesome as qta
-from modules.page1 import ParkingSlotPage 
-from modules.page2 import HistoryPage
-from modules.page3 import CarsInParkingPage
-from modules.page4 import CustomersPage
-from modules.page5 import CoordinatesSetup
-from modules.page6 import ParkingInfoPage
-from modules.page7 import EnvironmentPage
-from modules.theme_colors import AppColors
+from app.modules.page1 import ParkingSlotPage 
+from app.modules.page2 import HistoryPage
+from app.modules.page3 import CarsInParkingPage
+from app.modules.page4 import CustomersPage
+from app.modules.page5 import CoordinatesSetup
+from app.modules.page6 import ParkingInfoPage
+from app.modules.page7 import EnvironmentPage
+from app.modules.theme_colors import AppColors
 
 class MainWindow(QMainWindow):
     def __init__(self):
