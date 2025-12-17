@@ -350,7 +350,7 @@ def remove_vehicle_from_system(license_plate):
     return result
 
 from app.modules.tracking_car import is_vehicle_being_tracked
-from app.modules.cloud_api import insert_history
+from app.modules.cloud_api import insert_history, update_parked_vehicle_list
 from app.resources.print_bill.print_bill import printting, write_file_pdf
 import datetime
 def verify_car_out(license_plate):
@@ -372,14 +372,11 @@ def verify_car_out(license_plate):
             print(f"[VERIFY] Xe {license_plate} vẫn đang được theo dõi, không xóa khỏi hệ thống.")
             return False
         else:
-            print(globals.global_id_license_plate_map)
-            print(get_parked_vehicles_from_file())
             print(f"[VERIFY] Xe {license_plate} không còn được theo dõi, tiến hành xóa khỏi hệ thống.")
             
             # Xóa thông tin xe khỏi danh sách xe trong bãi
             remove_vehicle_from_system(license_plate)
-            print(globals.global_id_license_plate_map)
-            print(get_parked_vehicles_from_file())
+
             # Tạo history khi xe ra
             # Chuyển time_in từ string sang datetime
             time_in_str = vehicle_info.get('time_in', '')
@@ -409,6 +406,13 @@ def verify_car_out(license_plate):
                 'total_price': total_price
             })
             print(f"[VERIFY] Đã tạo history cho xe {license_plate}: {parking_time_hours}h, {total_price} VNĐ")
+            # Update parked_vehicles.json
+            parked_vehicles = get_parked_vehicles_from_file()
+            new_list = [v for v in parked_vehicles['list'] if v['license_plate'] != license_plate]
+            parked_vehicles['list'] = new_list
+            save_parked_vehicles_to_file(parked_vehicles)
+            update_parked_vehicle_list(parked_vehicles)
+            print(f"[VERIFY] Đã cập nhật parked_vehicles.json sau khi xe {license_plate} ra khỏi bãi.")
             # Print bill
             write_file_pdf(
                 date=time_out.strftime("%d/%m/%Y-%H:%M:%S"),

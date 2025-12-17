@@ -318,10 +318,10 @@ def process_video(video_path, window_name, model_path, cam_id,
                 frame_for_mqtt = frame_original.copy()
                 x1, y1, x2, y2 = found_vehicle_bbox
                 
-                # Vẽ bounding box và biển số màu xanh lá, thickness = 1
-                cv2.rectangle(frame_for_mqtt, (x1, y1), (x2, y2), (0, 255, 0), 1)
+                # Vẽ bounding box và biển số màu xanh lá, thickness = 2
+                cv2.rectangle(frame_for_mqtt, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 cv2.putText(frame_for_mqtt, search_vehicle, (x1 + 3, y1 - 3),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 1)
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
                 
                 # Vẽ tên camera ở góc trên bên trái của frame
                 cv2.putText(frame_for_mqtt, f"Camera {cam_id}", (10, 30),
