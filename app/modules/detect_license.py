@@ -21,7 +21,7 @@ def start_detect_license():
     yolo_license_plate = torch.hub.load(yolov5_path, 'custom', path=license_plate_ocr_path, force_reload=True, source='local')
     # Đặt ngưỡng độ tự tin (confidence threshold) để nhận diện biển số xe
     yolo_license_plate.conf = 0.4
-    cap = cv2.VideoCapture(int(os.getenv("LICENSE_CAMERA")))
+    cap = cv2.VideoCapture(int(os.getenv("LICENSE_CAMERA")), cv2.CAP_DSHOW)
     lp_temp = ""
     delay = 0
     authen_threshold = 5
@@ -100,7 +100,7 @@ def start_detect_license():
                     else:
                         delay = 0
                         lp_temp = list_read_plates[0]
-                    if delay >= authen_threshold:
+                    if delay >= authen_threshold:   
                         delay = 0
                         print("Detected License Plate:", lp_temp)
                         threading.Thread(target=play_sound, args=('scan.mp3',)).start()

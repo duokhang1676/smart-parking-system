@@ -1,20 +1,20 @@
 - coordinate:
-  - 450
-  - 38
-  id: C0
+  - 448
+  - 56
+  id: A0
 - coordinate:
-  - 394
-  - 52
-  id: C1
+  - 392
+  - 73
+  id: A1
 - coordinate:
-  - 309
-  - 81
-  id: C2
+  - 315
+  - 100
+  id: A2
 - coordinate:
-  - 219
-  - 111
-  id: C3
+  - 230
+  - 136
+  id: A3
 - coordinate:
-  - 133
-  - 137
-  id: C4
+  - 135
+  - 171
+  id: A4

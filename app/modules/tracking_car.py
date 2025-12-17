@@ -154,7 +154,7 @@ def process_video(video_path, window_name, model_path, cam_id,
         model = YOLO(model_path, verbose=False)
 
     print(f"[Camera {cam_id}] Opening video source...")
-    cap = cv2.VideoCapture(video_path)
+    cap = cv2.VideoCapture(video_path, cv2.CAP_DSHOW)
     if not cap.isOpened():
         print(f"[ERROR] Camera {cam_id} failed to open {video_path}")
         return
