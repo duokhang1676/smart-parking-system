@@ -21,6 +21,7 @@ from app.modules.page4 import CustomersPage
 from app.modules.page5 import CoordinatesSetup
 from app.modules.page6 import ParkingInfoPage
 from app.modules.page7 import EnvironmentPage
+from app.modules.page8 import VehicleSearchPage
 from app.modules.theme_colors import AppColors
 
 class MainWindow(QMainWindow):
@@ -169,6 +170,7 @@ class MainWindow(QMainWindow):
         self.btn_page4 = create_sidebar_button("Customers", "fa5s.users", "Registered users")
         self.btn_page5 = create_sidebar_button("Settings", "fa5s.cog", "Configuration")
         self.btn_page7 = create_sidebar_button("Environment", "fa5s.leaf", "Air quality")
+        self.btn_page8 = create_sidebar_button("Vehicle Search", "fa5s.search", "Search images")
 
         sidebar_layout.addWidget(self.btn_page1)
         sidebar_layout.addWidget(self.btn_page2)
@@ -176,6 +178,7 @@ class MainWindow(QMainWindow):
         sidebar_layout.addWidget(self.btn_page4)
         sidebar_layout.addWidget(self.btn_page5)
         sidebar_layout.addWidget(self.btn_page7)
+        sidebar_layout.addWidget(self.btn_page8)
         sidebar_layout.addStretch()
         
         # Bottom Section - Theme Toggle
@@ -305,6 +308,7 @@ class MainWindow(QMainWindow):
         self.page5 = CoordinatesSetup()
         self.page6 = ParkingInfoPage()
         self.page7 = EnvironmentPage()
+        self.page8 = VehicleSearchPage()
 
         self.content_area.addWidget(self.page1)
         self.content_area.addWidget(self.page2)
@@ -313,6 +317,7 @@ class MainWindow(QMainWindow):
         self.content_area.addWidget(self.page5)
         self.content_area.addWidget(self.page6)
         self.content_area.addWidget(self.page7)
+        self.content_area.addWidget(self.page8)
 
         # Connect Navigation Buttons
         self.btn_page1.mousePressEvent = lambda e: self.navigate_to(self.page1, "Dashboard", "Home / Dashboard")
@@ -321,6 +326,7 @@ class MainWindow(QMainWindow):
         self.btn_page4.mousePressEvent = lambda e: self.navigate_to(self.page4, "Customers", "Home / Customers")
         self.btn_page5.mousePressEvent = lambda e: self.navigate_to(self.page5, "Settings", "Home / Settings")
         self.btn_page7.mousePressEvent = lambda e: self.navigate_to(self.page7, "Environment", "Home / Environment")
+        self.btn_page8.mousePressEvent = lambda e: self.navigate_to(self.page8, "Vehicle Search", "Home / Vehicle Search")
 
         self.setCentralWidget(root_widget)
         
@@ -338,8 +344,8 @@ class MainWindow(QMainWindow):
     
     def apply_initial_styles(self, is_dark):
         """Apply theme styles to all pages on startup"""
-        # Apply to Page 2, 3, 4, 6, 7 tables
-        for page in [self.page2, self.page3, self.page4, self.page6, self.page7]:
+        # Apply to Page 2, 3, 4, 6, 7, 8 tables
+        for page in [self.page2, self.page3, self.page4, self.page6, self.page7, self.page8]:
             if hasattr(page, 'apply_theme_style'):
                 page.apply_theme_style(is_dark)
         
@@ -395,8 +401,8 @@ class MainWindow(QMainWindow):
         settings = QSettings('SmartParking', 'ThemeConfig')
         is_dark = 'dark' in settings.value('theme', 'dark_teal.xml')
         
-        # Refresh Page 2, 3, 4, 6, 7 table styles
-        for page in [self.page2, self.page3, self.page4, self.page6, self.page7]:
+        # Refresh Page 2, 3, 4, 6, 7, 8 table styles
+        for page in [self.page2, self.page3, self.page4, self.page6, self.page7, self.page8]:
             if hasattr(page, 'apply_theme_style'):
                 page.apply_theme_style(is_dark)
         
