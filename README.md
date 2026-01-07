@@ -23,6 +23,7 @@ Smart Parking is a mobile application that allows users to:
 - Auto-refresh every 15-30 seconds
 - QR code display for quick identification
 - Multiple parking lot selection
+![System Architecture](docs/images/home.png)
 
 ### 📝 Registration
 - Monthly parking subscription registration
@@ -31,6 +32,7 @@ Smart Parking is a mobile application that allows users to:
 - License plate format validation (Format: 2 digits + 1 uppercase letter + 4-5 digits, e.g., 30A99999)
 - Multiple subscription plans (1/3/6/12 months)
 - QR code payment integration
+![System Architecture](docs/images/register.png)
 
 ### 🔐 Authentication
 - Login with phone number and password validation
@@ -199,7 +201,7 @@ All test cases passed successfully.
 
 ## License
 
-This project is part of a smart parking system academic project.
+This project is part of a Smart parking system project.
 
 ## Contact
 
