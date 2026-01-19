@@ -1,0 +1,124 @@
+# Silicon Labs Project Configuration Tools: slcp, v0, Component selection file.
+project_name: bt_soc_xg26_sensor
+label: bt_soc_xg26_sensor
+description: |
+  Demonstrates the features of the EFR32xG26 Dev Kit Board. This can be tested with the Simplicity Connect mobile app.
+category: Bluetooth Examples
+filter:
+- name: Device Type
+  value: [SoC]
+- name: Project Difficulty
+  value: [Advanced]
+- name: Wireless Technology
+  value: [Bluetooth]
+package: Bluetooth
+quality: production
+readme:
+- {path: readme.md}
+- {path: readme.md}
+source:
+- {path: advertise.c}
+- {path: app.c}
+- {path: main.c}
+- {path: brd2608a/rgbled.c}
+- {path: driver/hall/sensor_hall.c}
+- {path: driver/imu/sensor_imu.c}
+- {path: driver/pressure/sensor_pressure.c}
+- {path: driver/sound/sensor_sound.c}
+tag: [prebuilt_demo, 'hardware:board_only']
+include:
+- path: .
+  file_list:
+  - {path: advertise.h}
+  - {path: app.h}
+- path: brd2608a
+  file_list:
+  - {path: board.h}
+- path: driver/hall
+  file_list:
+  - {path: sensor_hall.h}
+- path: driver/imu
+  file_list:
+  - {path: sensor_imu.h}
+- path: driver/pressure
+  file_list:
+  - {path: sensor_pressure.h}
+- path: driver/sound
+  file_list:
+  - {path: sensor_sound.h}
+sdk: {id: simplicity_sdk, version: 2024.12.2}
+toolchain_settings: []
+component:
+- {id: app_assert}
+- {id: app_log}
+- {id: app_timer}
+- {id: bluetooth_feature_connection}
+- {id: bluetooth_feature_gatt_server}
+- {id: bluetooth_feature_legacy_advertiser}
+- {id: bluetooth_feature_sm}
+- {id: bluetooth_feature_system}
+- {id: bluetooth_stack}
+- {id: bootloader_interface}
+- {id: brd2608a}
+- {id: clock_manager}
+- {id: device_init}
+- {id: gatt_configuration}
+- {id: gatt_service_aio}
+- {id: gatt_service_battery}
+- {id: gatt_service_device_information}
+- {id: gatt_service_hall}
+- {id: gatt_service_imu}
+- {id: gatt_service_lux}
+- {id: gatt_service_pressure}
+- {id: gatt_service_rgb}
+- {id: gatt_service_rht}
+- {id: gatt_service_sound}
+- instance: [sensor]
+  id: i2cspm
+- {id: imu_driver}
+- {id: in_place_ota_dfu}
+- {id: mic_driver}
+- {id: mpu}
+- {id: power_supply}
+- {id: pressure_driver}
+- {id: printf}
+- {id: rail_util_pti}
+- {id: sensor_lux}
+- {id: sensor_rht}
+- {id: si7210_driver}
+- instance: [btn0, btn1]
+  id: simple_button
+- instance: [rgb_led0]
+  id: simple_rgb_pwm_led
+- {id: sl_common}
+- {id: sl_system}
+other_file:
+- {path: image/readme_img0.png}
+- {path: image/readme_img1.png}
+- {path: image/readme_img2.png}
+- {path: image/readme_img3.png}
+- {path: image/readme_img4.png}
+- {path: image/readme_img5.png}
+configuration:
+- {name: SL_STACK_SIZE, value: '2752'}
+- {name: SL_HEAP_SIZE, value: '9200'}
+- {name: SL_BOARD_ENABLE_VCOM, value: '1'}
+- {name: SL_IOSTREAM_USART_VCOM_RESTRICT_ENERGY_MODE_TO_ALLOW_RECEPTION, value: '0'}
+- {name: SL_IOSTREAM_EUSART_VCOM_RESTRICT_ENERGY_MODE_TO_ALLOW_RECEPTION, value: '0'}
+- {name: SL_POWER_MANAGER_INIT_EMU_EM4_PIN_RETENTION_MODE, value: EMU_EM4CTRL_EM4IORETMODE_EM4EXIT}
+- {name: SL_BOARD_ENABLE_SENSOR_RHT, value: '1'}
+- {name: SL_BOARD_ENABLE_SENSOR_HALL, value: '1'}
+- {name: SL_BOARD_ENABLE_SENSOR_PRESSURE, value: '1'}
+- {name: SL_BOARD_ENABLE_SENSOR_IMU, value: '1'}
+- {name: SL_BOARD_ENABLE_SENSOR_MICROPHONE, value: '1'}
+- condition: [psa_crypto]
+  name: SL_PSA_KEY_USER_SLOT_COUNT
+  value: '0'
+- {name: APP_LOG_NEW_LINE, value: APP_LOG_NEW_LINE_RN}
+ui_hints:
+  highlight:
+  - {path: config/btconf/gatt_configuration_dev_kit.btconf}
+  - {path: readme.md, focus: true}
+post_build:
+- {path: bt_soc_xg26_sensor.slpb, profile: bt_common}
+
