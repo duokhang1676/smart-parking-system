@@ -1,0 +1,46 @@
+[
+    {
+        "license_plate": "30A-88119",
+        "user_id": "0123"
+    },
+    {
+        "license_plate": "29C1-99999",
+        "user_id": "01234"
+    },
+    {
+        "license_plate": "30G-49344",
+        "user_id": "01234"
+    },
+    {
+        "license_plate": "30K-55055",
+        "user_id": "00"
+    },
+    {
+        "license_plate": "30G-53507",
+        "user_id": "01"
+    },
+    {
+        "license_plate": "30G-49344",
+        "user_id": "01"
+    },
+    {
+        "license_plate": "09123",
+        "user_id": "0123"
+    },
+    {
+        "license_plate": "30K-55055",
+        "user_id": "0356972399"
+    },
+    {
+        "license_plate": "30G-49344",
+        "user_id": "0356972399"
+    },
+    {
+        "license_plate": "30G-53507",
+        "user_id": "0356972399"
+    },
+    {
+        "license_plate": "30A-99999",
+        "user_id": "0356972399"
+    }
+]
