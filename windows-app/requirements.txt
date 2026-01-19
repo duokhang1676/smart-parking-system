@@ -1,0 +1,57 @@
+# ========================================
+# PARKING MANAGEMENT WINDOWS APP
+# Essential Dependencies Only
+# Python 3.10+
+# ========================================
+
+# ===== GUI FRAMEWORK =====
+PyQt5==5.15.11
+qt-material==2.14
+QtAwesome==1.3.1
+
+# ===== HTTP & API =====
+requests==2.32.3
+
+# ===== DATABASE =====
+pymongo==4.6.1
+
+# ===== CONFIGURATION =====
+python-dotenv==1.0.1
+
+# ===== COMPUTER VISION & AI =====
+opencv-python==4.9.0.80
+torch==2.1.0
+torchvision==0.16.0
+ultralytics==8.1.0
+Pillow==10.2.0
+numpy==1.26.4
+
+# ===== MQTT IoT =====
+paho-mqtt==1.6.1
+
+# ===== PDF & PRINTING =====
+PyPDF2==3.0.1
+reportlab==4.0.9
+pywin32==306
+
+# ===== UTILITIES =====
+PyYAML==6.0.1
+python-vlc==3.0.20123
+keyboard==0.13.5
+
+# ========================================
+# INSTALLATION INSTRUCTIONS
+# ========================================
+# 1. Create virtual environment:
+#    python -m venv venv
+#
+# 2. Activate environment:
+#    Windows: venv\Scripts\activate
+#    Linux/Mac: source venv/bin/activate
+#
+# 3. Install dependencies:
+#    pip install -r requirements.txt
+#
+# 4. For PyTorch with CUDA support (optional):
+#    pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+# ========================================
