@@ -1,0 +1,378 @@
+================================================================================
+                    SMART PARKING MOBILE APP
+                    Tài Liệu Tổng Quan Hệ Thống
+================================================================================
+
+1. GIỚI THIỆU TỔNG QUAN
+--------------------------------------------------------------------------------
+Smart Parking là ứng dụng di động quản lý bãi đỗ xe thông minh, cho phép người 
+dùng theo dõi tình trạng bãi đỗ, đăng ký gửi xe hàng tháng, và thanh toán trực 
+tuyến. Ứng dụng cung cấp giao diện trực quan, cập nhật thông tin real-time và 
+hỗ trợ đa chức năng cho người dùng.
+
+
+2. CÔNG NGHỆ SỬ DỤNG
+--------------------------------------------------------------------------------
+
+2.1. Frontend (Mobile App)
+   - Framework: Flutter (Dart)
+   - State Management: Provider Pattern
+   - UI Components: Material Design
+   - QR Code: qr_flutter package
+   - HTTP Client: http package
+   - Local Storage: SharedPreferences
+
+2.2. Backend Integration
+   - Protocol: HTTP/HTTPS
+   - Data Format: JSON
+   - Authentication: Token-based (lưu trong session)
+   - API Architecture: RESTful API
+
+2.3. Third-party Services
+   - Payment: VietQR - Chuyển khoản ngân hàng
+   - QR Code Generation: Dynamic QR for user identification
+
+
+3. CẤU TRÚC DỰ ÁN
+--------------------------------------------------------------------------------
+
+smart_parking/
+├── lib/
+│   ├── main.dart                    # Entry point
+│   ├── pages/                       # UI Screens
+│   │   ├── login.dart              # Màn hình đăng nhập
+│   │   ├── signin.dart             # Màn hình đăng ký
+│   │   ├── main_page.dart          # Container với bottom navigation
+│   │   ├── home.dart               # Trang chủ - Dashboard
+│   │   ├── register.dart           # Đăng ký gửi xe hàng tháng
+│   │   ├── payment_qr_page.dart    # Thanh toán QR
+│   │   └── setting.dart            # Cài đặt & Lịch sử
+│   └── services/                    # Business Logic Layer
+│       ├── api_service.dart        # HTTP Client cơ bản
+│       ├── api_service_dynamic.dart # HTTP Client động
+│       ├── auth_service.dart       # Xác thực người dùng
+│       ├── user_service.dart       # Quản lý thông tin user
+│       ├── parking_service.dart    # Quản lý bãi đỗ
+│       ├── payment_service.dart    # Xử lý thanh toán
+│       └── user_session.dart       # Quản lý session (Provider)
+├── assets/                          # Tài nguyên tĩnh
+│   ├── images/                     # Hình ảnh
+│   └── icons/                      # Icons
+└── fonts/                          # Font chữ Poppins
+
+
+4. CHỨC NĂNG CHÍNH
+--------------------------------------------------------------------------------
+
+4.1. Xác Thực (Authentication)
+   ✓ Đăng nhập bằng số điện thoại và mật khẩu
+   ✓ Đăng ký tài khoản mới
+   ✓ Tự động lưu session (auto-login)
+   ✓ Đăng xuất và xóa session
+
+4.2. Trang Chủ (Home Dashboard)
+   ✓ Hiển thị thông tin người dùng và QR code cá nhân
+   ✓ Dropdown chọn bãi đỗ (tự động lưu lựa chọn)
+   ✓ Hiển thị tình trạng bãi đỗ (số chỗ trống/đang đỗ/tổng số)
+   ✓ Hiển thị môi trường (nhiệt độ, độ ẩm, ánh sáng)
+   ✓ Danh sách xe đang đỗ của người dùng
+   ✓ Tự động làm mới dữ liệu (15s/20s/30s cycles)
+   ✓ Popup QR code để quét tại bãi đỗ
+
+4.3. Đăng Ký Gửi Xe (Monthly Registration)
+   ✓ Tìm kiếm bãi đỗ theo tên hoặc địa chỉ
+   ✓ Điền form đăng ký (thông tin cá nhân, xe, bãi đỗ)
+   ✓ Chọn gói đăng ký (1/3/6/12 tháng)
+   ✓ Tạo order thanh toán
+   ✓ Hiển thị QR code và thông tin chuyển khoản
+   ✓ Xác nhận đã thanh toán
+
+4.4. Cài Đặt (Settings)
+   ✓ Xem thông tin cá nhân
+   ✓ Xem danh sách xe đã đăng ký
+   ✓ Xem lịch sử gửi xe (thời gian vào/ra, chi phí)
+   ✓ Làm mới dữ liệu
+   ✓ Mở rộng/Thu gọn danh sách (khi nhiều hơn 3 mục)
+   ✓ Đăng xuất tài khoản
+
+
+5. TƯƠNG TÁC NGƯỜI DÙNG
+--------------------------------------------------------------------------------
+
+5.1. Luồng Đăng Nhập/Đăng Ký
+   User mở app → Kiểm tra session → Nếu chưa login → Màn hình Login
+   User nhập SĐT + Password → Nhấn Login → Gọi API → Lưu session → Vào Main
+   
+   Hoặc: User chọn Sign Up → Nhập thông tin → Gọi API → Tự động login → Main
+
+5.2. Luồng Xem Thông Tin Bãi Đỗ
+   User vào Home → Load danh sách bãi đỗ → Hiển thị dropdown
+   User chọn bãi → Lưu lựa chọn vào SharedPreferences
+   → Gọi API lấy thông tin → Hiển thị (tình trạng, môi trường, xe)
+   → Auto-refresh mỗi 15s/20s/30s → Cập nhật UI
+
+5.3. Luồng Đăng Ký Gửi Xe
+   User vào Register → Tìm kiếm bãi đỗ → Chọn bãi từ kết quả
+   → Tự động điền tên + địa chỉ → User điền form (xe, thông tin, gói)
+   → Nhấn Register → Validate → Gọi API đăng ký
+   → Nhận order info → Chuyển sang Payment QR Page
+   → Hiển thị QR + thông tin chuyển khoản
+   → User chuyển khoản → Đánh dấu đã chuyển → Chờ xác nhận
+
+5.4. Luồng Xem Lịch Sử
+   User vào Settings → Cuộn xuống Parking History
+   → Nhấn Refresh để tải mới → Hiển thị danh sách
+   → Nếu > 3 bản ghi → Nhấn "Show more" để mở rộng
+   → Xem chi tiết (thời gian, bãi đỗ, biển số, chi phí)
+
+
+6. TƯƠNG TÁC FRONTEND - BACKEND
+--------------------------------------------------------------------------------
+
+6.1. Kiến Trúc Kết Nối
+
+   ┌─────────────┐         ┌──────────────┐         ┌─────────────┐
+   │   Pages     │ ──────> │   Services   │ ──────> │ Backend API │
+   │   (UI)      │ <────── │   (Logic)    │ <────── │   (Server)  │
+   └─────────────┘         └──────────────┘         └─────────────┘
+         │                        │
+         │                        │
+         v                        v
+   ┌─────────────────────────────────────┐
+   │      User Session (Provider)         │
+   │    SharedPreferences (Local)         │
+   └─────────────────────────────────────┘
+
+6.2. API Endpoints
+
+   Authentication:
+   - POST /login
+     Request: {"phone_number": "xxx", "password": "xxx"}
+     Response: {"user_id": "xxx", "name": "xxx", "phone_number": "xxx"}
+
+   - POST /user/create_account
+     Request: {"name": "xxx", "phone_number": "xxx", "password": "xxx"}
+     Response: {"message": "success", "user_id": "xxx"}
+
+   User Management:
+   - POST /user/get_user_registers
+     Request: {"user_id": "xxx"}
+     Response: ["parking1 | address1", "parking2 | address2", ...]
+
+   - POST /histories/get_parking_histories
+     Request: {"user_id": "xxx"}
+     Response: [{"parking_name": "xxx", "time_in": "xxx", ...}, ...]
+
+   Parking Operations:
+   - POST /parking/get_all_parkings
+     Response: [{"name": "xxx", "address": "xxx", "active": true}, ...]
+
+   - POST /parking/get_parking_info
+     Request: {"parking_id": "xxx"}
+     Response: {
+       "name": "xxx",
+       "address": "xxx",
+       "empty": 10,
+       "parked": 5,
+       "total": 15,
+       "temperature": "25°C",
+       "humidity": "60%",
+       "light": "300 lux",
+       "licenses": [{"license_plate": "xxx", "time_in": "xxx"}, ...]
+     }
+
+   - POST /parking/get_parking_id
+     Request: {"name": "xxx", "address": "xxx"}
+     Response: {"parking_id": "xxx"}
+
+   - POST /user/register_monthly_parking
+     Request: {
+       "user_id": "xxx",
+       "parking_id": "xxx",
+       "license_plate": "xxx",
+       "vehicle_make": "xxx",
+       "vehicle_color": "xxx",
+       "plan": "xxx"
+     }
+     Response: {"message": "success", "registration_id": "xxx"}
+
+   Payment:
+   - POST /orders/create
+     Request: {
+       "user_id": "xxx",
+       "parking_name": "xxx",
+       "license_plate": "xxx",
+       "plan": "xxx",
+       "amount": 1000
+     }
+     Response: {
+       "order_id": "xxx",
+       "qr_content": "xxx",
+       "bank_info": {...},
+       "formatted_amount": "1,000",
+       "transfer_description": "xxx"
+     }
+
+6.3. Data Flow Chi Tiết
+
+   VÍ DỤ: Load thông tin bãi đỗ
+
+   1. User Interface (home.dart):
+      - User chọn bãi đỗ từ dropdown
+      - Gọi: _processSelectedParking(selectedString)
+      - Extract parking_id từ string
+
+   2. Service Layer (parking_service.dart):
+      - UI gọi: ParkingService.getParkingInfo(parkingId)
+      - Service tạo request body: {"parking_id": parkingId}
+
+   3. API Service (api_service.dart):
+      - Service gọi: ApiService.post('/parking/get_parking_info', data)
+      - Gửi HTTP POST với headers và body JSON
+      - Base URL: http://34.142.177.207:8000
+
+   4. Backend Response:
+      - Server xử lý request
+      - Truy vấn database
+      - Trả về JSON response
+
+   5. Service Processing:
+      - Nhận response từ API
+      - Parse JSON thành Map<String, dynamic>
+      - Return data về UI
+
+   6. UI Update:
+      - UI nhận data từ Service
+      - setState() để cập nhật state
+      - Re-render widgets với data mới
+
+6.4. Error Handling
+
+   - Network Error: Hiển thị SnackBar "Connection failed"
+   - API Error (4xx/5xx): Hiển thị message từ server
+   - Validation Error: Hiển thị lỗi trên form field
+   - Timeout: Retry mechanism hoặc thông báo timeout
+
+6.5. State Management Flow
+
+   ┌──────────────────────────────────────────────────────┐
+   │              User Session (Provider)                  │
+   │  - isLoggedIn: bool                                  │
+   │  - userId: String                                    │
+   │  - userName: String                                  │
+   │  - phoneNumber: String                               │
+   │  - notifyListeners() → Update all consumers          │
+   └──────────────────────────────────────────────────────┘
+                         ↓
+   ┌──────────────────────────────────────────────────────┐
+   │         Consumer Widgets (All Pages)                  │
+   │  - Listen to UserSession changes                     │
+   │  - Auto rebuild when state changes                   │
+   │  - Access session data via Provider.of()             │
+   └──────────────────────────────────────────────────────┘
+
+6.6. Local Storage (SharedPreferences)
+
+   - Key: 'selected_parking_<user_id>'
+     Value: String (parking selection)
+     Purpose: Lưu lựa chọn bãi đỗ của user
+
+   - Key: 'user_session'
+     Value: JSON string (user data)
+     Purpose: Auto-login khi mở lại app
+
+
+7. TÍNH NĂNG ĐẶC BIỆT
+--------------------------------------------------------------------------------
+
+7.1. Auto-Refresh Mechanism
+   - Timer 1: Refresh vehicle list mỗi 15 giây
+   - Timer 2: Refresh parking status mỗi 20 giây
+   - Timer 3: Refresh environment data mỗi 30 giây
+   - Tất cả timer chạy song song, độc lập
+   - Tự động dispose khi user rời khỏi Home page
+
+7.2. Persistent Dropdown Selection
+   - Lưu lựa chọn bãi đỗ vào SharedPreferences
+   - Key unique cho từng user: 'selected_parking_<user_id>'
+   - Load lại khi mở app hoặc back về Home
+   - Priority: Saved selection > Auto-select > First item
+
+7.3. Dynamic QR Code
+   - User QR: Chứa user_id để scan tại bãi đỗ
+   - Payment QR: Chứa thông tin chuyển khoản (VietQR format)
+   - QR display trong popup có thể save/share
+
+7.4. Keyboard Overflow Protection
+   - Login/SignIn page: SingleChildScrollView + resizeToAvoidBottomInset: false
+   - Register page: ListView (scrollable by default)
+   - Tránh lỗi "bottom overflowed" khi bàn phím xuất hiện
+
+7.5. Collapsible Lists
+   - Registered Vehicles: Show 3 items, expand to show all
+   - Parking History: Show 3 records, expand to show all
+   - Scroll nội bộ khi expanded
+   - Toggle expand/collapse bằng button
+
+7.6. Search & Filter
+   - Real-time search trong Register page
+   - Filter parking theo name hoặc address
+   - Debounce để tránh call API liên tục
+
+
+8. BẢO MẬT
+--------------------------------------------------------------------------------
+
+   - Password: Gửi plain text (nên mã hóa trong production)
+   - Session: Lưu local, không có expiry time (cần cải thiện)
+   - API: Không có authentication token header (cần thêm)
+   - HTTPS: Backend đang dùng HTTP (nên chuyển sang HTTPS)
+
+   Khuyến nghị cải thiện:
+   ✓ Implement JWT token authentication
+   ✓ Hash password trước khi gửi
+   ✓ Add session expiry
+   ✓ Use HTTPS cho production
+   ✓ Implement refresh token mechanism
+
+
+9. PERFORMANCE
+--------------------------------------------------------------------------------
+
+   - Lazy loading: Load data khi cần (onInit, onRefresh)
+   - Caching: SharedPreferences cho dropdown selection
+   - Debouncing: Search input với delay
+   - Pagination: Chưa implement (nên thêm cho list dài)
+   - Image optimization: Sử dụng assets local
+   - Auto-refresh: Timer dispose đúng cách để tránh memory leak
+
+
+10. HƯỚNG PHÁT TRIỂN
+--------------------------------------------------------------------------------
+
+   Tính năng có thể thêm:
+   ✓ Push notification khi xe vào/ra bãi
+   ✓ Map view để chọn bãi đỗ
+   ✓ Booking trước chỗ đỗ
+   ✓ Payment gateway integration (MoMo, ZaloPay)
+   ✓ Vehicle plate recognition
+   ✓ Report & Analytics dashboard
+   ✓ Multi-language support
+   ✓ Dark mode
+   ✓ Biometric authentication (Face ID, Fingerprint)
+   ✓ Export lịch sử thành PDF/Excel
+
+   Technical improvements:
+   ✓ Unit tests & Integration tests
+   ✓ Error logging service (Sentry, Firebase Crashlytics)
+   ✓ Analytics (Firebase Analytics)
+   ✓ CI/CD pipeline
+   ✓ Code documentation
+   ✓ API versioning
+
+
+================================================================================
+Phiên bản: 1.0
+Ngày cập nhật: 23/11/2025
+Tác giả: Smart Parking Development Team
+================================================================================
